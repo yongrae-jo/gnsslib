@@ -1,3 +1,14 @@
+
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']]
+    }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+
 # ★ GNSSLIB 프로젝트 AI 작업 가이드라인
 
 이 문서는 GNSSLIB 프로젝트에서 AI가 코드 작성, 문서화, 리팩토링 등의 작업을 수행할 때 지켜야 할 규칙들을 정의합니다.

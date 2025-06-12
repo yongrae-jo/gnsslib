@@ -1,5 +1,15 @@
 # ★ 위성 궤도력 처리 모듈 (ephemeris)
 
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']]
+    }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+
 GNSS 위성의 궤도력 타입 관리를 위한 기초 모듈입니다.
 
 ## ■ 목차

@@ -2,9 +2,15 @@
 title: GNSSLIB
 ---
 
-<script type="text/javascript" async
-  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']]
+    }
+  };
 </script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 
 # ★ GNSSLIB: 다중 GNSS 신호처리 라이브러리
 
@@ -29,14 +35,12 @@ GNSSLIB는 GPS, Galileo, BeiDou 등 다양한 GNSS 신호를 고성능으로 처
 -  고성능 행렬/벡터 연산 엔진
 -  정밀 측위 알고리즘 내장 (LSQ, EKF)
 -  크로스 플랫폼: Windows, Linux, macOS
--  문서 내 수식 지원: $~\boldsymbol{r}^s(t) = f(\text{eph}, t-t_{\text{oe}})~$
 
 ---
 
 ## ■ 문서 활용법
 
 - 좌측(혹은 상단) 메뉴에서 각 모듈별 문서를 선택해 상세 내용을 확인하세요.
-- 모든 수식은 $~...~$ 또는 $$...$$ 형태로 입력하면 자동 렌더링됩니다.
 
 ---
 
