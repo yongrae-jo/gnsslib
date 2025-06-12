@@ -7,6 +7,7 @@
 
 #include "obs.h"
 #include <string.h>     // for strcmp, strncpy, strchr
+#include "common.h"     // for GetFcn, Sat2Prn, Sys2Str, Str2Sys
 #include "ephemeris.h"  // for GetEphType
 
 // =============================================================================
