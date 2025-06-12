@@ -7,17 +7,19 @@ title: GNSS 처리 옵션 관리 모듈 (option)
 
 GNSS 측위 처리에 필요한 다양한 옵션과 매개변수를 관리하는 핵심 모듈입니다.
 
-## ● 목차
-- [함수 구조](#◆-함수-구조)
-- [기본 개념](#◆-기본-개념)
-- [옵션 구조체](#◆-옵션-구조체)
-- [함수 목록](#◆-함수-목록)
-- [사용 예시](#◆-사용-예시)
-- [성능 특성](#◆-성능-특성)
+## ■ 목차
+
+1. [기본 개념](#▲-기본-개념)
+2. [데이터 타입 구조](#▲-데이터-타입-구조)
+3. [데이터 타입 목록](#▲-데이터-타입-목록)
+4. [함수 구조](#▲-함수-구조)
+5. [함수 목록](#▲-함수-목록)
+6. [사용 예시](#▲-사용-예시)
+7. [성능 특성](#▲-성능-특성)
 
 ---
 
-## ◆ 함수 구조
+## ▲ 기본 개념
 
 ```
 option 모듈 함수 계층
@@ -27,10 +29,259 @@ option 모듈 함수 계층
 
 ---
 
-## ◆ 기본 개념
+## ▲ 데이터 타입 구조
 
-### ● GNSS 처리 옵션 관리
-option 모듈은 GNSS 측위 처리에 필요한 모든 설정값과 매개변수를 중앙집중식으로 관리합니다:
+```
+option 모듈 데이터 계층
+├── 처리 설정
+│   ├── mode ──────────────── 처리 모드 (SPP, RTK)
+│   ├── engine ────────────── 처리 엔진 (LSQ, EKF)
+│   ├── nrcv ──────────────── 수신기 개수
+│   └── nfreq ─────────────── 주파수 개수
+├── 보정 모델 설정
+│   ├── ephopt ────────────── 궤도력 옵션 (방송/정밀)
+│   ├── posopt ────────────── 위치 옵션 (추정/고정)
+│   ├── ionoopt ───────────── 이온층 옵션 (끄기/방송/추정)
+│   └── tropoopt ──────────── 대류층 옵션 (끄기/Saas/추정)
+├── 고급 처리 설정
+│   ├── par ───────────────── 부분 모호정수 해결
+│   ├── cascade ───────────── 계단식 모호정수 해결
+│   ├── gloaropt ──────────── GLONASS 모호정수 해결
+│   └── dynamics ──────────── 수신기 동역학 옵션
+├── 필터링 매개변수
+│   ├── maxout ────────────── 최대 단절 횟수
+│   └── minlock ───────────── 최소 록 횟수
+├── 시간 범위 설정
+│   ├── ts ────────────────── 처리 시작 시간
+│   └── te ────────────────── 처리 종료 시간
+├── 측정 오차 설정
+│   ├── err ───────────────── 반송파 위상 오차
+│   └── errratio ──────────── 의사거리 오차 비율
+├── EKF 프로세스 노이즈
+│   ├── procnoiseAmb ──────── 위상 모호정수 노이즈
+│   ├── procnoiseTropo ────── 대류층 노이즈
+│   ├── procnoiseIono ─────── 이온층 노이즈
+│   ├── procnoiseHacc ─────── 수평 가속도 노이즈
+│   ├── procnoiseVacc ─────── 수직 가속도 노이즈
+│   ├── procnoiseDtr ──────── 수신기 시계 노이즈
+│   ├── procnoiseDts ──────── 위성 시계 노이즈
+│   ├── procnoiseIsb ──────── 시스템간 편향 노이즈
+│   ├── procnoiseCbr ──────── 수신기 코드 편향 노이즈
+│   ├── procnoiseCbs ──────── 위성 코드 편향 노이즈
+│   ├── procnoisePbr ──────── 수신기 위상 편향 노이즈
+│   └── procnoisePbs ──────── 위성 위상 편향 노이즈
+├── 품질 제어 매개변수
+│   ├── elmask ────────────── 고도각 마스크
+│   └── maxgdop ───────────── 최대 GDOP 값
+└── 위성 제외 관리
+    └── exsats[NSAT] ──────── 제외 위성 목록
+```
+
+---
+
+## ▲ 데이터 타입 목록
+
+#### ◆ opt_t 구조체
+<details>
+<summary>상세 설명</summary>
+
+**목적**: GNSS 측위 처리에 필요한 모든 옵션과 매개변수 통합 관리
+
+**구조**:
+```c
+typedef struct opt {
+    // 처리 설정
+    int mode;               // 처리 모드
+    int engine;             // 처리 엔진
+    int nrcv;               // 수신기 개수
+    int nfreq;              // 주파수 개수
+
+    // 보정 모델 설정
+    int ephopt;             // 궤도력 옵션
+    int posopt;             // 위치 옵션
+    int ionoopt;            // 이온층 옵션
+    int tropoopt;           // 대류층 옵션
+
+    // 고급 처리 설정
+    int par;                // 부분 모호정수 해결
+    int cascade;            // 계단식 모호정수 해결
+    int gloaropt;           // GLONASS 모호정수 해결
+    int dynamics;           // 수신기 동역학 옵션
+
+    // 필터링 매개변수
+    int maxout;             // 최대 단절 횟수
+    int minlock;            // 최소 록 횟수
+
+    // 시간 범위 설정
+    double ts;              // 처리 시작 시간 [s]
+    double te;              // 처리 종료 시간 [s]
+
+    // 측정 오차 설정
+    double err;             // 반송파 위상 오차 [m]
+    double errratio;        // 의사거리 오차 비율
+
+    // EKF 프로세스 노이즈
+    double procnoiseAmb;    // 위상 모호정수 [cycle]
+    double procnoiseTropo;  // 천정 습윤 지연 [m]
+    double procnoiseIono;   // 이온층 지연 [m]
+    double procnoiseHacc;   // 수평 가속도 [m/s^2]
+    double procnoiseVacc;   // 수직 가속도 [m/s^2]
+    double procnoiseDtr;    // 수신기 시계 [m]
+    double procnoiseDts;    // 위성 시계 [m]
+    double procnoiseIsb;    // 시스템간 편향 [m]
+    double procnoiseCbr;    // 수신기 코드 편향 [m]
+    double procnoiseCbs;    // 위성 코드 편향 [m]
+    double procnoisePbr;    // 수신기 위상 편향 [m]
+    double procnoisePbs;    // 위성 위상 편향 [m]
+
+    // 품질 제어 매개변수
+    double elmask;          // 고도각 마스크 [rad]
+    double maxgdop;         // 최대 GDOP 값
+
+    // 위성 제외 관리
+    int exsats[NSAT];       // 제외 위성 목록
+} opt_t;
+```
+
+**특징**:
+- 모든 GNSS 처리 옵션을 하나의 구조체로 통합
+- 기본값으로 SPP 모드, LSQ 엔진 설정
+- BeiDou GEO 위성을 기본 제외 처리
+- EKF 필터링을 위한 상세한 프로세스 노이즈 설정
+
+</details>
+
+---
+
+## ▲ 함수 구조
+
+```
+option 모듈 함수 계층
+└── 옵션 관리
+    └── InitOpt() ──────────── 옵션 데이터 초기화
+```
+
+---
+
+## ▲ 함수 목록
+
+#### ◆ 옵션 관리 함수
+
+##### ● InitOpt() - 옵션 데이터 초기화
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 옵션 구조체의 모든 필드를 기본값으로 초기화
+
+**입력**:
+- `opt_t *opt`: 초기화할 옵션 구조체
+
+**출력**:
+- `void`: 반환값 없음
+
+**함수 로직**:
+1. 모든 정수형 옵션을 기본값으로 설정
+2. 측정 오차 매개변수를 표준값으로 초기화
+3. EKF 프로세스 노이즈를 적절한 수준으로 설정
+4. BeiDou GEO 위성을 기본 제외 목록에 추가
+
+**기본값 설정**:
+- SPP 모드, LSQ 엔진, 단일 수신기/주파수
+- 방송 궤도력 및 이온층/대류층 모델 사용
+- 3mm 반송파 위상 오차, 100:1 의사거리 비율
+- 10도 고도각 마스크, 최대 GDOP 30
+
+</details>
+
+---
+
+## ▲ 사용 예시
+
+```c
+// 옵션 구조체 생성 및 초기화
+opt_t opt;
+InitOpt(&opt);
+
+// 기본 설정 확인
+printf("처리 모드: %d (SPP)\n", opt.mode);
+printf("처리 엔진: %d (LSQ)\n", opt.engine);
+printf("수신기 개수: %d\n", opt.nrcv);
+printf("주파수 개수: %d\n", opt.nfreq);
+printf("고도각 마스크: %.1f도\n", opt.elmask * R2D);
+```
+
+### ◆ 커스텀 설정 적용
+```c
+// EKF 모드로 변경
+opt.engine = ENGINE_EKF;
+
+// 다중 주파수 설정
+opt.nfreq = 2;
+
+// 고도각 마스크 15도로 변경
+opt.elmask = 15.0 * D2R;
+
+// 정밀 궤도력 사용
+opt.ephopt = EPHOPT_PREC;
+
+// 이온층 추정 모드
+opt.ionoopt = IONOOPT_EST;
+
+printf("업데이트된 설정 적용 완료\n");
+```
+
+### ◆ EKF 프로세스 노이즈 조정
+```c
+// 보다 보수적인 노이즈 설정
+opt.procnoiseAmb = 1E-9;       // 위상 모호정수 노이즈 감소
+opt.procnoiseTropo = 1E-5;     // 대류층 노이즈 감소
+opt.procnoiseHacc = 1E-3;      // 수평 가속도 노이즈 감소
+
+// 동적 플랫폼용 설정
+opt.dynamics = DYNOPT_ON;      // 동역학 모델 활성화
+opt.procnoiseHacc = 1E-1;      // 수평 가속도 노이즈 증가
+opt.procnoiseVacc = 1E-2;      // 수직 가속도 노이즈 증가
+
+printf("EKF 노이즈 매개변수 조정 완료\n");
+```
+
+### ◆ 위성 제외 관리
+```c
+// 특정 GPS 위성 제외 (예: PRN 1, PRN 15)
+int gps1 = Prn2Sat(1, 1);     // GPS PRN 1
+int gps15 = Prn2Sat(1, 15);   // GPS PRN 15
+
+opt.exsats[gps1] = 1;         // 제외
+opt.exsats[gps15] = 1;        // 제외
+
+// 제외된 위성 확인
+for (int i = 1; i <= NSAT; i++) {
+    if (opt.exsats[i]) {
+        int prn;
+        int sys = Sat2Prn(i, &prn);
+        printf("제외된 위성: %c%02d\n", Sys2Str(sys), prn);
+    }
+}
+```
+
+---
+
+## ▲ 성능 특성
+
+### ◆ 메모리 효율성
+- **단일 구조체**: 모든 옵션을 하나의 구조체로 통합 관리
+- **정적 할당**: 동적 메모리 할당 없는 고정 크기 구조체
+- **배열 최적화**: 위성 제외 목록을 비트 배열로 효율적 관리
+
+### ◆ 기본값 최적화
+- **실용적 설정**: 일반적인 GNSS 처리에 적합한 기본값
+- **BeiDou 최적화**: GEO 위성 자동 제외로 성능 향상
+- **노이즈 균형**: EKF 수렴성과 정확도의 균형잡힌 설정
+
+### ◆ 확장성
+- **모듈화 설계**: 새로운 옵션 추가 시 구조체 확장 용이
+- **시스템 독립**: GNSS 시스템별 독립적인 옵션 관리
+- **호환성**: 기존 코드와의 하위 호환성 보장
 
 **핵심 관리 영역**:
 - **처리 모드**: SPP(Single Point Positioning) 설정

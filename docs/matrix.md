@@ -9,13 +9,13 @@ GNSS 정밀 측위를 위한 고성능 수치 연산 엔진입니다.
 
 ## ■ 목차
 
-1. [기본 개념](#-기본-개념)
-2. [데이터 타입 구조](#-데이터-타입-구조)
-3. [데이터 타입 목록](#-데이터-타입-목록)
-4. [함수 구조](#-함수-구조)
-5. [함수 목록](#-함수-목록)
-6. [사용 예시](#-사용-예시)
-7. [성능 특성](#-성능-특성)
+1. [기본 개념](#▲-기본-개념)
+2. [데이터 타입 구조](#▲-데이터-타입-구조)
+3. [데이터 타입 목록](#▲-데이터-타입-목록)
+4. [함수 구조](#▲-함수-구조)
+5. [함수 목록](#▲-함수-목록)
+6. [사용 예시](#▲-사용-예시)
+7. [성능 특성](#▲-성능-특성)
 
 ---
 
@@ -38,14 +38,21 @@ GNSS 정밀 측위를 위한 고성능 수치 연산 엔진입니다.
 - **성능 향상**: 벡터화 연산으로 4-8배 속도 개선
 
 ### ◆ 메모리 관리 체계
-- **초기화/해제 쌍**: `Mat()`/`FreeMat()`, `Vec()`/`FreeVec()`
+- **초기화/해제 쌍**: `Mat()`/`FreeMat()`, `Idx()`/`FreeIdx()`
 - **NULL 안전성**: 모든 해제 함수에서 NULL 포인터 검증
 - **빈 행렬 지원**: 0×0 차원 행렬 처리 가능
 
-### ◆ 타입 시스템
-두 가지 데이터 타입을 지원하여 메모리 효율성과 정확도를 동시에 제공합니다:
-- **DOUBLE**: 64비트 부동소수점 (GNSS 계산용)
-- **INT**: 32비트 정수 (인덱스, 플래그용)
+### ◆ 확장된 타입 시스템
+세 가지 데이터 타입을 지원하여 메모리 효율성과 정확도를 동시에 제공합니다:
+- **DOUBLE**: 64비트 부동소수점 (GNSS 계산용) - mat_t 전용
+- **INT**: 32비트 정수 (인덱스, 플래그용) - mat_t 전용
+- **BOOL**: 불리언 타입 (논리 마스크용) - idx_t 전용
+
+### ◆ 고급 인덱싱 시스템
+Matrix 모듈은 MATLAB/NumPy 스타일의 고급 인덱싱을 지원합니다:
+- **벡터 인덱싱**: 정수 인덱스 배열을 사용한 부분 행렬 추출
+- **논리 인덱싱**: 불리언 마스크를 사용한 조건부 선택
+- **제자리 연산**: 메모리 효율적인 인덱싱 처리
 
 ---
 
@@ -54,16 +61,18 @@ GNSS 정밀 측위를 위한 고성능 수치 연산 엔진입니다.
 ```
 matrix 모듈 타입 계층
 ├── type_t (enum)
-│   ├── INT ────────────── 32비트 정수 타입
-│   └── DOUBLE ─────────── 64비트 부동소수점 타입
+│   ├── BOOL ───────────────── 불리언 타입 (idx_t 전용)
+│   ├── INT ────────────────── 32비트 정수 타입 (mat_t 전용)
+│   └── DOUBLE ─────────────── 64비트 부동소수점 타입 (mat_t 전용)
 ├── idx_t (struct)
-│   ├── n ──────────────── 인덱스 개수
-│   └── idx ────────────── 인덱스 배열 (uint32_t*)
+│   ├── n ──────────────────── 인덱스 개수
+│   ├── type ───────────────── 인덱스 타입 (BOOL/INT)
+│   └── idx ────────────────── 인덱스 배열 포인터 (32바이트 정렬)
 └── mat_t (struct)
-    ├── rows ───────────── 행 개수
-    ├── cols ───────────── 열 개수
-    ├── type ───────────── 데이터 타입 (INT/DOUBLE)
-    └── data ───────────── 32바이트 정렬 데이터 포인터 (column-major)
+    ├── rows ───────────────── 행 개수
+    ├── cols ───────────────── 열 개수
+    ├── type ───────────────── 데이터 타입 (INT/DOUBLE)
+    └── data ───────────────── 32바이트 정렬 데이터 포인터 (column-major)
 ```
 
 ---
@@ -78,14 +87,15 @@ matrix 모듈 타입 계층
 
 **정의**:
 ```c
-typedef enum {INT, DOUBLE} type_t;
+typedef enum {BOOL, INT, DOUBLE} type_t;
 ```
 
 **값**:
-- `INT`: 32비트 정수 타입
-- `DOUBLE`: 64비트 부동소수점 타입
+- `BOOL`: 불리언 타입 (idx_t 전용)
+- `INT`: 32비트 정수 타입 (mat_t 전용)
+- `DOUBLE`: 64비트 부동소수점 타입 (mat_t 전용)
 
-**사용**: 모든 행렬/벡터 생성 시 타입 지정에 활용
+**사용**: 모든 행렬/벡터 생성 시 타입 지정에 활용, 타입별 메모리 크기 최적화
 
 </details>
 
@@ -98,18 +108,21 @@ typedef enum {INT, DOUBLE} type_t;
 **정의**:
 ```c
 typedef struct idx {
-    uint32_t n;      // 인덱스 개수
-    uint32_t *idx;   // 인덱스 배열
+    int n;         // 인덱스 개수
+    type_t type;   // 인덱스 타입 (BOOL/INT)
+    void *idx;     // 인덱스 배열
 } idx_t;
 ```
 
 **특징**:
 - 행렬/벡터 인덱싱에 사용
-- 32비트 정수 배열, 32바이트 정렬
+- BOOL/INT 타입 지원, 32바이트 정렬
 - 동적 크기, 메모리 안전 해제 지원
+- 벡터 인덱싱과 논리 인덱싱 지원
 
 **접근 함수**:
-- `IdxGetI()/IdxSetI()`: 인덱스 접근/설정
+- `IdxGetI()/IdxSetI()`: INT 타입 인덱스 접근/설정
+- `IdxGetB()/IdxSetB()`: BOOL 타입 인덱스 접근/설정
 
 </details>
 
@@ -132,6 +145,7 @@ typedef struct mat {
 - Column-major 저장 방식 (FORTRAN/MATLAB 호환)
 - SIMD 최적화를 위한 32바이트 정렬
 - 빈 행렬(0×0) 지원
+- INT/DOUBLE 타입만 지원 (BOOL 타입 차단)
 
 **메모리 레이아웃**:
 - 실제 크기: `sizeof(type) * rows * cols`
@@ -158,18 +172,25 @@ matrix 모듈 함수 계층
 ├── 특수 행렬 생성
 │   ├── Eye() ──────────────── 단위행렬 생성
 │   ├── Zeros() ───────────── 영행렬 생성
-│   └── Ones() ────────────── 일행렬 생성
-├── 행렬 변환
-│   ├── MatTr() ───────────── 행렬 전치
-│   └── MatTrIn() ─────────── 제자리 전치
-├── 행렬 연산
+│   ├── Ones() ────────────── 일행렬 생성
+│   ├── TrueIdx() ─────────── True 인덱스 벡터 생성
+│   └── FalseIdx() ────────── False 인덱스 벡터 생성
+├── 행렬 복사/변환
 │   ├── MatCopy() ─────────── 행렬 복사
 │   ├── MatCopyIn() ───────── 제자리 복사
-│   ├── MatAdd() ──────────── 일반화 행렬 덧셈 [C = a*A^T + b*B^T]
+│   ├── MatTr() ───────────── 행렬 전치
+│   └── MatTrIn() ─────────── 제자리 전치
+├── 고급 인덱싱
+│   ├── MatVecIdx() ───────── 벡터 인덱싱
+│   ├── MatVecIdxIn() ─────── 제자리 벡터 인덱싱
+│   ├── MatLogIdx() ───────── 논리 인덱싱
+│   └── MatLogIdxIn() ─────── 제자리 논리 인덱싱
+├── 행렬 연산
+│   ├── MatAdd() ──────────── 일반화 행렬 덧셈 $[C = a \cdot A^T + b \cdot B^T]$
 │   ├── MatAddIn() ────────── 제자리 덧셈
-│   ├── MatMul() ──────────── 일반화 행렬 곱셈 [C = a*A^T * b*B^T]
+│   ├── MatMul() ──────────── 일반화 행렬 곱셈 $[C = a \cdot A^T \times b \cdot B^T]$
 │   ├── MatMulIn() ────────── 제자리 곱셈
-│   ├── MatInv() ──────────── 행렬 역행렬 [Ai = inv(a*A^T)]
+│   ├── MatInv() ──────────── 행렬 역행렬 $[A_i = \text{inv}(a \cdot A^T)]$
 │   └── MatInvIn() ────────── 제자리 역행렬
 ├── 벡터 연산 (mat_t, cols=1)
 │   ├── Dot() ──────────────── 벡터 내적 (DOUBLE 전용)
@@ -178,8 +199,8 @@ matrix 모듈 함수 계층
 ├── 분석 함수
 │   └── MatDet() ──────────── 행렬식 계산 (LU 분해)
 └── 고급 알고리즘
-    ├── Lsq() ─────────────── 최소제곱법 [L = Q*H^T*W, x = L*y, P = L*R*L^T]
-    └── Ekf() ─────────────── 확장칼만필터 [K = P*H^T*S^-1, x = x + K*v, P = (I-K*H)*P]
+    ├── Lsq() ─────────────── 최소제곱법 (optional 매개변수 지원)
+    └── Ekf() ─────────────── 확장칼만필터 (optional 매개변수 지원)
 ```
 
 ---
@@ -197,16 +218,16 @@ matrix 모듈 함수 계층
 **입력**:
 - `int rows`: 행 개수 (≥ 0)
 - `int cols`: 열 개수 (≥ 0)
-- `type_t type`: 데이터 타입 (DOUBLE/INT)
+- `type_t type`: 데이터 타입 (DOUBLE 또는 INT 전용)
 
 **출력**:
-- `mat_t *`: 초기화된 행렬 포인터 (실패 시 NULL)
+- `mat_t *`: 할당된 행렬 구조체 (오류 시 NULL)
 
 **함수 로직**:
-1. 입력 매개변수 유효성 검사 (행/열 개수 ≥ 0)
-2. 행렬 구조체 메모리 할당
-3. 32바이트 정렬 데이터 메모리 할당 (플랫폼별 분기)
-4. 구조체 필드 초기화 및 반환
+- 32바이트 경계 정렬 메모리 할당
+- Column-major 저장 방식 적용
+- BOOL 타입 차단으로 타입 안전성 보장
+- 0×0 차원 빈 행렬 지원
 
 </details>
 
@@ -214,18 +235,18 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 행렬 메모리 안전 해제
+**목적**: 행렬 메모리 해제
 
 **입력**:
-- `mat_t *mat`: 해제할 행렬 포인터
+- `mat_t *mat`: 해제할 행렬 구조체
 
 **출력**:
 - `void`: 반환값 없음
 
 **함수 로직**:
-1. NULL 포인터 검사로 안전 보장
-2. 데이터 메모리 해제 (플랫폼별 분기)
-3. 구조체 메모리 해제
+- NULL 포인터 안전 처리
+- SIMD 정렬 메모리 해제
+- 구조체 메모리 해제
 
 </details>
 
@@ -237,15 +258,15 @@ matrix 모듈 함수 계층
 
 **입력**:
 - `int n`: 인덱스 개수 (≥ 0)
+- `type_t type`: 인덱스 타입 (BOOL 또는 INT)
 
 **출력**:
-- `idx_t *`: 초기화된 인덱스 벡터 포인터 (실패 시 NULL)
+- `idx_t *`: 할당된 인덱스 벡터 구조체 (오류 시 NULL)
 
 **함수 로직**:
-1. 입력 매개변수 유효성 검사 (n ≥ 0)
-2. 인덱스 벡터 구조체 메모리 할당
-3. 32바이트 정렬 데이터 메모리 할당 (플랫폼별 분기)
-4. 구조체 필드 초기화 및 반환
+- 32바이트 경계 정렬 메모리 할당
+- 타입별 메모리 크기 최적화
+- BOOL/INT 타입 지원
 
 </details>
 
@@ -253,18 +274,17 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 인덱스 벡터 메모리 안전 해제
+**목적**: 인덱스 벡터 메모리 해제
 
 **입력**:
-- `idx_t *idx`: 해제할 인덱스 벡터 포인터
+- `idx_t *idx`: 해제할 인덱스 벡터 구조체
 
 **출력**:
 - `void`: 반환값 없음
 
 **함수 로직**:
-1. NULL 포인터 검사로 안전 보장
-2. 데이터 메모리 해제 (플랫폼별 분기)
-3. 구조체 메모리 해제
+- NULL 포인터 안전 처리
+- SIMD 정렬 메모리 해제
 
 </details>
 
@@ -274,20 +294,19 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 단위행렬(대각선 원소가 1인 정방행렬) 생성
+**목적**: 단위행렬 생성
 
 **입력**:
-- `int size`: 행렬 크기 (size × size)
-- `type_t type`: 데이터 타입 (DOUBLE/INT)
+- `int size`: 행렬 크기 (size × size, ≥ 0)
+- `type_t type`: 데이터 타입 (DOUBLE 또는 INT 전용)
 
 **출력**:
-- `mat_t *`: 단위행렬 포인터 (실패 시 NULL)
+- `mat_t *`: 단위행렬 (오류 시 NULL)
 
 **함수 로직**:
-1. 정방행렬 생성 (`Mat(size, size, type)`)
-2. 모든 원소를 0으로 초기화
-3. 대각선 원소를 1로 설정 (i == j인 위치)
-4. 생성된 단위행렬 반환
+- 대각선 원소를 1로 설정
+- 나머지 원소는 0으로 초기화
+- BOOL 타입 차단
 
 </details>
 
@@ -295,20 +314,19 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 모든 원소가 0인 행렬 생성
+**목적**: 영행렬 생성
 
 **입력**:
-- `int rows`: 행 개수
-- `int cols`: 열 개수
-- `type_t type`: 데이터 타입 (DOUBLE/INT)
+- `int rows`: 행 개수 (≥ 0)
+- `int cols`: 열 개수 (≥ 0)
+- `type_t type`: 데이터 타입 (DOUBLE 또는 INT 전용)
 
 **출력**:
-- `mat_t *`: 영행렬 포인터 (실패 시 NULL)
+- `mat_t *`: 영행렬 (오류 시 NULL)
 
 **함수 로직**:
-1. 지정된 크기의 행렬 생성
-2. 메모리를 0으로 초기화 (`memset`)
-3. 초기화된 영행렬 반환
+- 모든 원소를 0으로 초기화
+- BOOL 타입 차단
 
 </details>
 
@@ -316,191 +334,246 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 모든 원소가 1인 행렬 생성
+**목적**: 일행렬 생성
 
 **입력**:
-- `int rows`: 행 개수
-- `int cols`: 열 개수
-- `type_t type`: 데이터 타입 (DOUBLE/INT)
+- `int rows`: 행 개수 (≥ 0)
+- `int cols`: 열 개수 (≥ 0)
+- `type_t type`: 데이터 타입 (DOUBLE 또는 INT 전용)
 
 **출력**:
-- `mat_t *`: 일행렬 포인터 (실패 시 NULL)
+- `mat_t *`: 일행렬 (오류 시 NULL)
 
 **함수 로직**:
-1. 지정된 크기의 행렬 생성
-2. 모든 원소를 1로 설정 (타입별 분기)
-3. 초기화된 일행렬 반환
+- 모든 원소를 1로 초기화
+- BOOL 타입 차단
 
 </details>
 
-#### ◆ 행렬 변환 함수
-
-##### ● MatTr() - 행렬 전치
+##### ● TrueIdx() - True 인덱스 벡터 생성
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 행렬의 전치행렬 생성 (행과 열을 바꿈)
+**목적**: 모든 원소가 true인 불리언 인덱스 벡터 생성
 
 **입력**:
-- `const mat_t *A`: 입력 행렬 (m×n)
+- `int n`: 인덱스 개수 (≥ 0)
 
 **출력**:
-- `mat_t *`: 전치된 행렬 (n×m), 실패 시 NULL
+- `idx_t *`: true 인덱스 벡터 (오류 시 NULL)
 
 **함수 로직**:
-1. 입력 행렬 유효성 검사
-2. 전치된 크기의 새 행렬 생성 (cols × rows)
-3. 원소별 전치 복사: `result[j][i] = input[i][j]`
-4. 전치된 행렬 반환
+- BOOL 타입으로 인덱스 벡터 생성
+- 모든 원소를 true로 초기화
 
 </details>
 
-##### ● MatTrIn() - 제자리 행렬 전치
+##### ● FalseIdx() - False 인덱스 벡터 생성
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 정방행렬의 제자리 전치 (메모리 효율적)
+**목적**: 모든 원소가 false인 불리언 인덱스 벡터 생성
 
 **입력**:
-- `mat_t *A`: 전치할 정방행렬 (수정됨)
+- `int n`: 인덱스 개수 (≥ 0)
 
 **출력**:
-- `int`: 성공 시 1, 실패 시 0
+- `idx_t *`: false 인덱스 벡터 (오류 시 NULL)
 
 **함수 로직**:
-1. 정방행렬 여부 확인 (rows == cols)
-2. 상삼각 영역에서 하삼각 영역으로 원소 교환
-3. 대각선 원소는 그대로 유지
-4. 성공/실패 상태 반환
+- BOOL 타입으로 인덱스 벡터 생성
+- 모든 원소를 false로 초기화
 
 </details>
 
-#### ◆ 벡터 연산 함수 (mat_t, cols=1)
-
-##### ● Dot() - 벡터 내적
-<details>
-<summary>상세 설명</summary>
-
-**목적**: 두 벡터의 내적 계산 (mat_t, cols=1만 지원)
-
-**입력**:
-- `const mat_t *a`: 첫 번째 벡터 (DOUBLE 타입, cols=1)
-- `const mat_t *b`: 두 번째 벡터 (DOUBLE 타입, cols=1)
-- `double *c`: 내적 결과 저장 포인터
-
-**출력**:
-- `int`: 성공 시 1, 실패 시 0
-
-**함수 로직**:
-1. 벡터 차원 및 타입 호환성 검증 (cols=1, DOUBLE)
-2. 원소별 곱셈 및 누적 합산
-3. 성공/실패 반환
-
-</details>
-
-##### ● Cross3() - 3차원 외적
-<details>
-<summary>상세 설명</summary>
-
-**목적**: 3차원 벡터의 외적 계산 (mat_t, cols=1만 지원)
-
-**입력**:
-- `const mat_t *a`: 첫 번째 3차원 벡터 (DOUBLE, 3x1)
-- `const mat_t *b`: 두 번째 3차원 벡터 (DOUBLE, 3x1)
-- `mat_t *c`: 외적 결과 벡터 (DOUBLE, 3x1)
-
-**출력**:
-- `int`: 성공 시 1, 실패 시 0
-
-**함수 로직**:
-1. 3차원 벡터 여부 및 타입 검증 (rows=3, cols=1, DOUBLE)
-2. 외적 공식 적용
-3. 성공/실패 반환
-
-</details>
-
-##### ● Norm() - 유클리드 노름
-<details>
-<summary>상세 설명</summary>
-
-**목적**: 벡터의 유클리드 노름(크기) 계산 (mat_t, cols=1만 지원)
-
-**입력**:
-- `const mat_t *a`: 입력 벡터 (DOUBLE 타입, cols=1)
-
-**출력**:
-- `double`: 벡터 노름 $\|\boldsymbol{a}\| = \sqrt{\sum_{i=1}^n a_i^2}$ (실패 시 0.0)
-
-**함수 로직**:
-1. 벡터 타입 및 차원 검증 (DOUBLE, cols=1)
-2. 원소별 제곱합 계산
-3. 제곱근 연산으로 노름 계산
-
-</details>
-
-#### ◆ 행렬 연산 함수
+#### ◆ 행렬 복사/변환 함수
 
 ##### ● MatCopy() - 행렬 복사
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 행렬의 전체 복사본 생성
+**목적**: 행렬을 새로운 메모리에 복사
 
 **입력**:
-- `const mat_t *A`: 복사할 원본 행렬
+- `const mat_t *A`: 소스 행렬
 
 **출력**:
-- `mat_t *`: 복사된 행렬 포인터 (실패 시 NULL)
+- `mat_t *`: 복사된 행렬 (오류 시 NULL)
 
 **함수 로직**:
-1. 동일한 크기와 타입의 새 행렬 생성
-2. 메모리 블록 단위 복사 (`memcpy`)
-3. 복사된 행렬 반환
+- 새로운 행렬 메모리 할당
+- 데이터 완전 복사
+- 동일한 차원과 타입 유지
 
 </details>
 
-##### ● MatCopyIn() - 제자리 행렬 복사
+##### ● MatCopyIn() - 제자리 복사
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 한 행렬에서 다른 행렬로 직접 복사
+**목적**: 기존 행렬에 소스 행렬 데이터 복사
 
 **입력**:
-- `mat_t *des`: 대상 행렬 (수정됨)
-- `const mat_t *src`: 원본 행렬
+- `mat_t *des`: 목적지 행렬
+- `const mat_t *src`: 소스 행렬
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
 **함수 로직**:
-1. 차원 및 타입 호환성 검증
-2. 메모리 블록 단위 직접 복사
-3. 추가 메모리 할당 없는 효율적 처리
+- 차원과 타입 일치 검증
+- 데이터 제자리 복사
+- 메모리 효율적 처리
 
 </details>
+
+##### ● MatTr() - 행렬 전치
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 행렬 전치 계산
+
+**입력**:
+- `const mat_t *A`: 입력 행렬
+
+**출력**:
+- `mat_t *`: 전치된 행렬 $A^T$ (오류 시 NULL)
+
+**함수 로직**:
+- 새로운 전치 행렬 메모리 할당
+- 행과 열 차원 교환
+- Column-major 저장 방식 유지
+
+</details>
+
+##### ● MatTrIn() - 제자리 전치
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 제자리 행렬 전치 ($A = A^T$)
+
+**입력**:
+- `mat_t *A`: 전치할 행렬 (m×n → n×m)
+
+**출력**:
+- `int`: 성공 시 1, 실패 시 0
+
+**함수 로직**:
+- 정사각행렬에 최적화
+- 메모리 재할당 최소화
+- 차원 정보 업데이트
+
+</details>
+
+#### ◆ 고급 인덱싱 함수
+
+##### ● MatVecIdx() - 벡터 인덱싱
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 정수 인덱스 배열을 사용한 부분 행렬 추출
+
+**입력**:
+- `const mat_t *mat`: 입력 행렬
+- `const idx_t *ridx`: 행 인덱스 벡터 (INT 타입)
+- `const idx_t *cidx`: 열 인덱스 벡터 (INT 타입)
+
+**출력**:
+- `mat_t *`: 인덱싱된 부분 행렬 (오류 시 NULL)
+
+**함수 로직**:
+- MATLAB/NumPy 스타일 벡터 인덱싱
+- 새로운 행렬 메모리 할당
+- 인덱스 범위 검증
+
+</details>
+
+##### ● MatVecIdxIn() - 제자리 벡터 인덱싱
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 제자리 벡터 인덱싱
+
+**입력**:
+- `mat_t *mat`: 입력/출력 행렬
+- `const idx_t *ridx`: 행 인덱스 벡터 (INT 타입)
+- `const idx_t *cidx`: 열 인덱스 벡터 (INT 타입)
+
+**출력**:
+- `int`: 성공 시 1, 실패 시 0
+
+**함수 로직**:
+- 메모리 효율적 제자리 처리
+- 차원 정보 자동 업데이트
+- 인덱스 범위 검증
+
+</details>
+
+##### ● MatLogIdx() - 논리 인덱싱
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 불리언 마스크를 사용한 조건부 부분 행렬 추출
+
+**입력**:
+- `const mat_t *mat`: 입력 행렬
+- `const idx_t *ridx`: 행 논리 마스크 (BOOL 타입)
+- `const idx_t *cidx`: 열 논리 마스크 (BOOL 타입)
+
+**출력**:
+- `mat_t *`: 논리 인덱싱된 부분 행렬 (오류 시 NULL)
+
+**함수 로직**:
+- MATLAB/NumPy 스타일 논리 인덱싱
+- true 위치의 원소만 추출
+- 동적 크기 결정
+
+</details>
+
+##### ● MatLogIdxIn() - 제자리 논리 인덱싱
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 제자리 논리 인덱싱
+
+**입력**:
+- `mat_t *mat`: 입력/출력 행렬
+- `const idx_t *ridx`: 행 논리 마스크 (BOOL 타입)
+- `const idx_t *cidx`: 열 논리 마스크 (BOOL 타입)
+
+**출력**:
+- `int`: 성공 시 1, 실패 시 0
+
+**함수 로직**:
+- 메모리 효율적 제자리 처리
+- 논리 마스크 기반 조건부 선택
+- 차원 정보 자동 업데이트
+
+</details>
+
+#### ◆ 행렬 연산 함수
 
 ##### ● MatAdd() - 일반화 행렬 덧셈
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 일반화된 행렬 덧셈 연산 수행
+**목적**: 일반화 행렬 덧셈 수행
 
 **입력**:
-- `double a`: 첫 번째 행렬의 스칼라 계수
-- `const mat_t *A`: 첫 번째 행렬
-- `bool trA`: A의 전치 여부
-- `double b`: 두 번째 행렬의 스칼라 계수
-- `const mat_t *B`: 두 번째 행렬
-- `bool trB`: B의 전치 여부
+- `double a`: 행렬 A의 스칼라
+- `const mat_t *A`: 행렬 A
+- `bool trA`: A 전치 플래그 (true이면 $A^T$)
+- `double b`: 행렬 B의 스칼라
+- `const mat_t *B`: 행렬 B
+- `bool trB`: B 전치 플래그 (true이면 $B^T$)
 
 **출력**:
-- `mat_t *`: 결과 행렬 `C = a*A^T + b*B^T` (실패 시 NULL)
+- `mat_t *`: 결과 행렬 $C = a \cdot A^T + b \cdot B^T$ (오류 시 NULL)
 
 **함수 로직**:
-1. 입력 행렬 차원 호환성 검증
-2. 전치 옵션에 따른 실제 차원 계산
-3. 결과 행렬 생성 및 원소별 연산 수행
-4. 타입별 분기 처리 (DOUBLE/INT)
+- 선택적 전치 연산 지원
+- 스칼라 곱셈 통합 처리
+- 차원 호환성 검증
 
 </details>
 
@@ -508,23 +581,23 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 첫 번째 행렬에 덧셈 결과 저장
+**목적**: 제자리 일반화 행렬 덧셈
 
 **입력**:
-- `mat_t *A`: 결과가 저장될 행렬 (수정됨)
-- `double a`: A의 스칼라 계수
-- `bool trA`: A의 전치 여부
-- `double b`: B의 스칼라 계수
-- `const mat_t *B`: 두 번째 행렬
-- `bool trB`: B의 전치 여부
+- `mat_t *A`: 입력/출력 행렬 A
+- `double a`: 행렬 A의 스칼라
+- `bool trA`: A 전치 플래그
+- `double b`: 행렬 B의 스칼라
+- `const mat_t *B`: 행렬 B
+- `bool trB`: B 전치 플래그
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
 **함수 로직**:
-1. 차원 호환성 검증
-2. 제자리 연산 수행: `A = a*A^T + b*B^T`
-3. 메모리 효율적 처리
+- $A = a \cdot A^T + b \cdot B^T$ 계산
+- 메모리 효율적 제자리 처리
+- 차원 호환성 검증
 
 </details>
 
@@ -532,24 +605,23 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 일반화된 행렬 곱셈 연산 수행
+**목적**: 일반화 행렬 곱셈 수행
 
 **입력**:
-- `double a`: 첫 번째 행렬의 스칼라 계수
-- `const mat_t *A`: 첫 번째 행렬
-- `bool trA`: A의 전치 여부
-- `double b`: 두 번째 행렬의 스칼라 계수
-- `const mat_t *B`: 두 번째 행렬
-- `bool trB`: B의 전치 여부
+- `double a`: 행렬 A의 스칼라
+- `const mat_t *A`: 행렬 A
+- `bool trA`: A 전치 플래그
+- `double b`: 행렬 B의 스칼라
+- `const mat_t *B`: 행렬 B
+- `bool trB`: B 전치 플래그
 
 **출력**:
-- `mat_t *`: 결과 행렬 `C = a*A^T * b*B^T` (실패 시 NULL)
+- `mat_t *`: 결과 행렬 $C = a \cdot A^T \times b \cdot B^T$ (오류 시 NULL)
 
 **함수 로직**:
-1. 행렬 곱셈 차원 호환성 검증 (A의 열 == B의 행)
-2. 전치 옵션에 따른 실제 차원 계산
-3. 결과 행렬 생성 및 곱셈 연산 수행
-4. 최적화된 루프 순서 (j-i-k 순서)
+- 선택적 전치 연산 지원
+- 스칼라 곱셈 통합 처리
+- BLAS 스타일 일반화 곱셈
 
 </details>
 
@@ -557,23 +629,23 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 첫 번째 행렬에 곱셈 결과 저장
+**목적**: 제자리 일반화 행렬 곱셈
 
 **입력**:
-- `mat_t *A`: 결과가 저장될 행렬 (수정됨)
-- `double a`: A의 스칼라 계수
-- `bool trA`: A의 전치 여부
-- `double b`: B의 스칼라 계수
-- `const mat_t *B`: 두 번째 행렬
-- `bool trB`: B의 전치 여부
+- `mat_t *A`: 입력/출력 행렬 A
+- `double a`: 행렬 A의 스칼라
+- `bool trA`: A 전치 플래그
+- `double b`: 행렬 B의 스칼라
+- `const mat_t *B`: 행렬 B
+- `bool trB`: B 전치 플래그
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
 **함수 로직**:
-1. 차원 호환성 검증
-2. 임시 행렬을 통한 안전한 제자리 연산
-3. 결과를 원본 행렬에 복사
+- $A = a \cdot A^T \times b \cdot B^T$ 계산
+- 메모리 효율적 제자리 처리
+- 임시 행렬을 통한 안전한 계산
 
 </details>
 
@@ -581,92 +653,172 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 행렬의 역행렬 계산
+**목적**: 일반화 행렬 역행렬 계산
 
 **입력**:
-- `double a`: 스칼라 계수
-- `const mat_t *A`: 입력 정방행렬
-- `bool trA`: A의 전치 여부
+- `double a`: 행렬 A의 스칼라
+- `const mat_t *A`: 행렬 A (정사각행렬)
+- `bool trA`: A 전치 플래그
 
 **출력**:
-- `mat_t *`: 역행렬 `Ai = inv(a*A^T)` (실패 시 NULL)
+- `mat_t *`: 역행렬 $A_i = \text{inv}(a \cdot A^T)$ (특이행렬/오류 시 NULL)
 
 **함수 로직**:
-1. 정방행렬 여부 및 특이행렬 검사
-2. LU 분해를 통한 역행렬 계산
-3. 부분 피벗팅으로 수치 안정성 확보
-4. DOUBLE 타입에서만 지원
+- LU 분해를 통한 역행렬 계산
+- 특이행렬 검출
+- 스칼라 곱셈 통합 처리
 
 </details>
 
-##### ● MatInvIn() - 제자리 역행렬
+##### ● MatInvIn() - 제자리 행렬 역행렬
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 원본 행렬을 역행렬로 교체
+**목적**: 제자리 일반화 행렬 역행렬
 
 **입력**:
-- `mat_t *A`: 역행렬로 교체될 행렬 (수정됨)
-- `double a`: 스칼라 계수
-- `bool trA`: A의 전치 여부
+- `mat_t *A`: 입력/출력 행렬 A
+- `double a`: 행렬 A의 스칼라
+- `bool trA`: A 전치 플래그
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
 **함수 로직**:
-1. 임시 역행렬 계산
-2. 원본 행렬에 결과 복사
-3. 임시 메모리 해제
+- $A = \text{inv}(a \cdot A^T)$ 계산
+- 메모리 효율적 제자리 처리
+- 특이행렬 안전 처리
+
+</details>
+
+#### ◆ 벡터 연산 함수
+
+##### ● Dot() - 벡터 내적
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 벡터 내적 계산 (DOUBLE 전용)
+
+**입력**:
+- `const mat_t *a`: 벡터 a (N×1, DOUBLE 타입)
+- `const mat_t *b`: 벡터 b (N×1, DOUBLE 타입)
+- `double *c`: 내적 결과 $c = \boldsymbol{a}^T \boldsymbol{b}$
+
+**출력**:
+- `int`: 성공 시 1, 실패 시 0
+
+**함수 로직**:
+- $c = \sum_{i=1}^n a_i \cdot b_i$ 계산
+- 벡터 차원 일치 검증
+- DOUBLE 타입 전용
+
+</details>
+
+##### ● Cross3() - 3차원 외적
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 3차원 벡터 외적 계산 (DOUBLE 전용)
+
+**입력**:
+- `const mat_t *a`: 벡터 a (3×1, DOUBLE 타입)
+- `const mat_t *b`: 벡터 b (3×1, DOUBLE 타입)
+- `mat_t *c`: 외적 벡터 $\boldsymbol{c} = \boldsymbol{a} \times \boldsymbol{b}$ (3×1, DOUBLE 타입)
+
+**출력**:
+- `int`: 성공 시 1, 실패 시 0
+
+**함수 로직**:
+- $\boldsymbol{c} = \begin{bmatrix} a_2b_3 - a_3b_2 \\ a_3b_1 - a_1b_3 \\ a_1b_2 - a_2b_1 \end{bmatrix}$ 계산
+- 3차원 벡터 검증
+- DOUBLE 타입 전용
+
+</details>
+
+##### ● Norm() - 유클리드 노름
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 벡터 2-노름 계산 (DOUBLE 전용)
+
+**입력**:
+- `const mat_t *a`: 입력 벡터 (m×1 또는 1×n, DOUBLE 타입)
+
+**출력**:
+- `double`: 2-노름 $\|\boldsymbol{a}\|_2$ (오류 시 0.0)
+
+**함수 로직**:
+- $\|\boldsymbol{a}\|_2 = \sqrt{\sum_{i=1}^n a_i^2}$ 계산
+- 행벡터/열벡터 모두 지원
+- DOUBLE 타입 전용
 
 </details>
 
 #### ◆ 분석 함수
 
-##### ● MatDet() - 행렬식 계산
+##### ● MatDet() - 행렬식
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 정방행렬의 행렬식 계산
+**목적**: LU 분해를 통한 행렬식 계산 (DOUBLE 전용)
 
 **입력**:
-- `const mat_t *A`: 입력 정방행렬 (DOUBLE 타입)
+- `const mat_t *A`: 정사각행렬 (DOUBLE 타입)
 
 **출력**:
-- `double`: 행렬식 값 (실패 시 0.0)
+- `double`: 행렬식 $\det(A)$ (특이행렬/오류 시 0.0)
 
 **함수 로직**:
-1. 정방행렬 및 DOUBLE 타입 검증
-2. LU 분해를 통한 행렬식 계산
-3. 부분 피벗팅 시 부호 조정
-4. 대각선 원소의 곱으로 최종 결과 계산
+- LU 분해: $A = PLU$
+- $\det(A) = \det(P) \cdot \prod_{i=1}^n u_{ii}$ 계산
+- 피벗팅을 통한 수치 안정성 확보
 
 </details>
 
-#### ◆ 고급 알고리즘
+#### ◆ 고급 알고리즘 함수
 
 ##### ● Lsq() - 최소제곱법
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 가중 최소제곱법으로 선형 시스템 해결
+**목적**: 최소제곱법 추정
 
 **입력**:
-- `const mat_t *H`: 설계행렬 (m×n)
-- `const mat_t *y`: 관측벡터 (m×1)
-- `const mat_t *R`: 관측 공분산행렬 (m×m, 필수)
-- `mat_t *x`: 해벡터 (n×1, 출력)
-- `mat_t *P`: 상태 공분산행렬 (n×n, 출력)
-- `mat_t *Hl`: 최소제곱 역행렬 (n×m, 출력, NULL 가능)
+- `const mat_t *H`: 설계 행렬 (DOUBLE 타입)
+- `const mat_t *y`: (선택적) 측정 벡터 (DOUBLE 타입, x가 NULL이 아닐 때만 필요)
+- `const mat_t *R`: (선택적) 측정 노이즈 공분산 행렬 (DOUBLE 타입, NULL이면 단위행렬)
+- `mat_t *x`: (선택적) 상태 벡터 (DOUBLE 타입)
+- `mat_t *P`: (선택적) 상태 공분산 행렬 (DOUBLE 타입)
+- `mat_t *Hl`: (선택적) H의 최소제곱 역행렬 (DOUBLE 타입)
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
+**수학 공식 (실제 구현 알고리즘)**:
+
+1. **가중치 행렬**: $\mathbf{W} = \mathbf{R}^{-1}$
+
+2. **일반화 정규 방정식**: $\mathbf{H}^T \mathbf{W} \mathbf{H} \boldsymbol{x} = \mathbf{H}^T \mathbf{W} \boldsymbol{y}$
+
+3. **단계별 계산**:
+   - $\mathbf{H}^T$ = H의 전치행렬
+   - $\mathbf{W} = \mathbf{R}^{-1}$ (R이 NULL이면 $\mathbf{I}$)
+   - $\mathbf{H}^T\mathbf{W} = \mathbf{H}^T \times \mathbf{W}$
+   - $\mathbf{H}^T\mathbf{W}\mathbf{H} = \mathbf{H}^T\mathbf{W} \times \mathbf{H}$
+   - $\mathbf{Q} = (\mathbf{H}^T\mathbf{W}\mathbf{H})^{-1}$ (상태 공분산)
+   - $\mathbf{L} = \mathbf{Q} \times \mathbf{H}^T\mathbf{W}$ (최소제곱 역행렬)
+
+4. **결과 계산**:
+   - $\boldsymbol{x} = \mathbf{L} \times \boldsymbol{y}$ (상태 추정, x가 NULL이 아닐 때만)
+   - $\mathbf{P} = \mathbf{L} \times \mathbf{R} \times \mathbf{L}^T$ (상태 공분산)
+   - $\mathbf{H}_l = \mathbf{L}$ (H의 최소제곱 역행렬)
+
+**특이행렬 검출**: $|\det(\mathbf{H}^T\mathbf{W}\mathbf{H})| < 10^{-15}$이면 실패
+
 **함수 로직**:
-1. 가중행렬 계산: $\mathbf{W} = \mathbf{R}^{-1}$
-2. 정보행렬 구성: $\mathbf{Q} = (\mathbf{H}^T \mathbf{W} \mathbf{H})^{-1}$
-3. 최소제곱 역행렬: $\mathbf{L} = \mathbf{Q} \mathbf{H}^T \mathbf{W}$
-4. 상태 추정: $\boldsymbol{x} = \mathbf{L} \boldsymbol{y}$
-5. 공분산 전파: $\mathbf{P} = \mathbf{L} \mathbf{R} \mathbf{L}^T$
+- R이 NULL이면 자동으로 단위행렬 사용
+- 모든 매개변수가 optional (H만 필수)
+- 특이행렬 안전 처리 및 메모리 효율적 계산
 
 </details>
 
@@ -674,24 +826,58 @@ matrix 모듈 함수 계층
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 확장칼만필터 갱신 단계 수행
+**목적**: 확장칼만필터 업데이트
 
 **입력**:
-- `const mat_t *H`: 관측행렬 (m×n)
-- `const mat_t *v`: 혁신벡터 (m×1)
-- `const mat_t *R`: 관측잡음 공분산 (m×m)
-- `mat_t *x`: 상태벡터 (n×1, 갱신됨)
-- `mat_t *P`: 오차 공분산 (n×n, 갱신됨)
-- `mat_t *K`: 칼만이득 (n×m, 출력, NULL 가능)
+- `const mat_t *H`: 설계 행렬 (DOUBLE 타입)
+- `const mat_t *v`: 측정 잔차 (DOUBLE 타입)
+- `const mat_t *R`: 측정 노이즈 공분산 (DOUBLE 타입)
+- `mat_t *x`: (선택적) 상태벡터 (n×1, 갱신됨)
+- `mat_t *P`: 오차 공분산 (n×n, 갱신됨, 필수)
+- `mat_t *K`: (선택적) 칼만이득 (n×m, 출력)
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
+**수학 공식 (실제 구현 알고리즘)**:
+
+**단계별 계산**:
+
+1. **전치행렬**: $\mathbf{H}^T$ = H의 전치행렬
+
+2. **예측 측정 공분산**:
+   - $\mathbf{H}\mathbf{P} = \mathbf{H} \times \mathbf{P}$
+   - $\mathbf{H}\mathbf{P}\mathbf{H}^T = \mathbf{H}\mathbf{P} \times \mathbf{H}^T$
+
+3. **혁신 공분산**:
+   $$\mathbf{S} = \mathbf{H}\mathbf{P}\mathbf{H}^T + \mathbf{R}$$
+
+4. **혁신 공분산 역행렬**: $\mathbf{S}^{-1} = \text{inv}(\mathbf{S})$
+
+5. **칼만 이득 계산**:
+   - $\mathbf{P}\mathbf{H}^T = \mathbf{P} \times \mathbf{H}^T$
+   - $\mathbf{K} = \mathbf{P}\mathbf{H}^T \times \mathbf{S}^{-1}$
+
+6. **상태벡터 갱신** (x가 NULL이 아닐 때만):
+   - $\mathbf{K}\boldsymbol{v} = \mathbf{K} \times \boldsymbol{v}$
+   - $\boldsymbol{x} = \boldsymbol{x} + \mathbf{K}\boldsymbol{v}$
+
+7. **공분산 갱신 (Joseph 형태)**:
+   - $\mathbf{K}\mathbf{H} = \mathbf{K} \times \mathbf{H}$
+   - $\mathbf{I} = \text{eye}(n)$ (n×n 단위행렬)
+   - $(\mathbf{I} - \mathbf{K}\mathbf{H}) = \mathbf{I} - \mathbf{K}\mathbf{H}$
+   - $(\mathbf{I} - \mathbf{K}\mathbf{H})^T$ = $(\mathbf{I} - \mathbf{K}\mathbf{H})$의 전치행렬
+   - $\mathbf{K}^T$ = $\mathbf{K}$의 전치행렬
+   - $\mathbf{K}\mathbf{R}\mathbf{K}^T = \mathbf{K} \times \mathbf{R} \times \mathbf{K}^T$
+   - $\mathbf{P} = (\mathbf{I} - \mathbf{K}\mathbf{H}) \times \mathbf{P} \times (\mathbf{I} - \mathbf{K}\mathbf{H})^T + \mathbf{K}\mathbf{R}\mathbf{K}^T$
+
+**Joseph 형태**: $\mathbf{P} = (\mathbf{I} - \mathbf{K}\mathbf{H}) \mathbf{P} (\mathbf{I} - \mathbf{K}\mathbf{H})^T + \mathbf{K}\mathbf{R}\mathbf{K}^T$로 수치적 안정성 보장
+
 **함수 로직**:
-1. 혁신 공분산: $\mathbf{S} = \mathbf{H} \mathbf{P} \mathbf{H}^T + \mathbf{R}$
-2. 칼만이득 계산: $\mathbf{K} = \mathbf{P} \mathbf{H}^T \mathbf{S}^{-1}$
-3. 상태벡터 갱신: $\boldsymbol{x} = \boldsymbol{x} + \mathbf{K} \boldsymbol{v}$
-4. 공분산 갱신: $\mathbf{P} = (\mathbf{I} - \mathbf{K} \mathbf{H}) \mathbf{P}$ (표준 형태)
+- P는 필수 매개변수 (반드시 갱신됨)
+- x는 선택적 (NULL이면 상태벡터 갱신 안 함)
+- K는 선택적 (NULL이면 칼만이득 출력 안 함)
+- 모든 중간 계산에서 메모리 안전성 보장
 
 </details>
 
@@ -699,98 +885,84 @@ matrix 모듈 함수 계층
 
 ## ▲ 사용 예시
 
-### ◆ 기본 행렬/벡터 연산
-
+### ◆ 기본 행렬 연산
 ```c
-#include "matrix.h"
+// 3×3 DOUBLE 행렬 생성
+mat_t *A = Mat(3, 3, DOUBLE);
+mat_t *B = Eye(3, DOUBLE);
 
-int main() {
-    // 3×3 DOUBLE 행렬 생성
-    mat_t *A = Mat(3, 3, DOUBLE);
-    mat_t *B = Mat(3, 3, DOUBLE);
-    mat_t *v1 = Mat(3, 1, DOUBLE); // 벡터는 cols=1
-    mat_t *v2 = Mat(3, 1, DOUBLE);
+// 행렬 덧셈: C = 2*A + 3*B^T
+mat_t *C = MatAdd(2.0, A, false, 3.0, B, true);
 
-    // 값 설정
-    for (int i = 0; i < 3; i++) {
-        MatSetD(v1, i, 0, (double)(i+1));
-        MatSetD(v2, i, 0, (double)(i+4));
-    }
+// 행렬 곱셈: D = A * B
+mat_t *D = MatMul(1.0, A, false, 1.0, B, false);
 
-    // 벡터 내적
-    double dot;
-    if (Dot(v1, v2, &dot)) {
-        printf("dot = %f\n", dot);
-    }
-
-    // 벡터 외적
-    mat_t *cross = Mat(3, 1, DOUBLE);
-    if (Cross3(v1, v2, cross)) {
-        // cross 사용
-    }
-    FreeMat(cross);
-
-    // 벡터 노름
-    double norm = Norm(v1);
-
-    // 메모리 해제
-    FreeMat(A); FreeMat(B); FreeMat(v1); FreeMat(v2);
-    return 0;
-}
+// 메모리 해제
+FreeMat(A); FreeMat(B); FreeMat(C); FreeMat(D);
 ```
 
-### ◆ 최소제곱법 적용
-
+### ◆ 고급 인덱싱
 ```c
-// 선형 시스템: H*x = y 해결
-mat_t *H = Mat(4, 2, DOUBLE);  // 4개 관측, 2개 미지수
-mat_t *y = Mat(4, 1, DOUBLE);  // 관측값
-mat_t *x = Mat(2, 1, DOUBLE);  // 해
-mat_t *P = Mat(2, 2, DOUBLE);  // 공분산
+// 5×5 행렬 생성
+mat_t *A = Mat(5, 5, DOUBLE);
 
-// H, y 값 설정 (생략)
+// 인덱스 벡터 생성 (2번째, 4번째 행/열 선택)
+idx_t *ridx = Idx(2, INT);
+IdxSetI(ridx, 0, 1); IdxSetI(ridx, 1, 3);
+idx_t *cidx = Idx(2, INT);
+IdxSetI(cidx, 0, 0); IdxSetI(cidx, 1, 2);
 
-// 관측 공분산 행렬 (단위행렬로 가정)
-mat_t *R = Eye(4, DOUBLE);
+// 벡터 인덱싱으로 2×2 부분 행렬 추출
+mat_t *sub = MatVecIdx(A, ridx, cidx);
 
-// 최소제곱법 적용
-int result = Lsq(H, y, R, x, P, NULL);
-if (result) {
-    printf("해: x1 = %f, x2 = %f\n", MatGetD(x, 0, 0), MatGetD(x, 1, 0));
+// 메모리 해제
+FreeMat(A); FreeMat(sub);
+FreeIdx(ridx); FreeIdx(cidx);
+```
+
+### ◆ 최소제곱법 예시
+```c
+// 설계 행렬 H (6×3), 측정 벡터 y (6×1)
+mat_t *H = Mat(6, 3, DOUBLE);
+mat_t *y = Mat(6, 1, DOUBLE);
+mat_t *x = Mat(3, 1, DOUBLE);
+mat_t *P = Mat(3, 3, DOUBLE);
+
+// 최소제곱법 수행 (R=NULL이면 자동으로 단위행렬 사용)
+int info = Lsq(H, y, NULL, x, P, NULL);
+
+if (info) {
+    // 추정 성공
+    double estimate = MatGetD(x, 0, 0);
 }
 
-FreeMat(H); FreeMat(y); FreeMat(x); FreeMat(P); FreeMat(R);
+// 메모리 해제
+FreeMat(H); FreeMat(y); FreeMat(x); FreeMat(P);
 ```
 
 ---
 
 ## ▲ 성능 특성
 
-### ◆ 메모리 정렬 최적화
-- **SIMD 가속**: 32바이트 정렬로 AVX/AVX2 명령어 활용
-- **캐시 효율성**: Column-major 순서로 캐시 미스 최소화
-- **성능 향상**: 일반 malloc 대비 2-4배 빠른 벡터 연산
+### ◆ 메모리 효율성
+- **SIMD 최적화**: 32바이트 정렬로 AVX 명령어 활용
+- **타입별 최적화**: BOOL(1바이트), INT(4바이트), DOUBLE(8바이트)
+- **제자리 연산**: 메모리 사용량 최소화
 
 ### ◆ 수치 안정성
-- **부분 피벗팅**: LU 분해에서 수치 오차 최소화
-- **조건수 검사**: 특이행렬 탐지로 안전성 보장
-- **정밀도 유지**: DOUBLE 타입으로 15자리 유효숫자 지원
+- **LU 분해**: 부분 피벗팅으로 수치 안정성 확보
+- **특이행렬 검출**: 안전한 역행렬 계산
+- **방어적 프로그래밍**: 모든 입력 검증
 
-### ◆ 복잡도 분석
-- **행렬 곱셈**: $O(n^3)$ - 표준 알고리즘
-- **역행렬**: $O(n^3)$ - LU 분해 기반
-- **행렬식**: $O(n^3)$ - LU 분해 기반
-- **최소제곱**: $O(mn^2 + n^3)$ - m개 관측, n개 미지수
+### ◆ 호환성
+- **플랫폼 독립**: Windows, macOS, Linux 지원
+- **MATLAB 호환**: Column-major 저장 방식
+- **표준 준수**: C99 표준 완전 호환
 
-### ◆ 메모리 사용량
-- **행렬**: `sizeof(mat_t) + align32(rows*cols*sizeof(type))`
-- **인덱스 벡터**: `sizeof(idx_t) + align32(n*sizeof(uint32_t))`
-- **정렬 오버헤드**: 평균 16바이트 추가 (최대 31바이트)
-
-### ◆ 플랫폼 호환성
-- **Windows**: `_aligned_malloc()` / `_aligned_free()`
-- **POSIX**: `posix_memalign()` / `free()`
-- **자동 감지**: 컴파일 시점에 플랫폼별 최적화 선택
+### ◆ 확장성
+- **모듈화 설계**: 독립적인 함수 단위
+- **타입 안전성**: 컴파일 타임 타입 검증
+- **optional 매개변수**: 유연한 인터페이스 제공
 
 ---
 

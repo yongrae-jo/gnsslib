@@ -29,18 +29,18 @@
 // -----------------------------------------------------------------------------
 static mat_t *MatrixMultiplication(const mat_t *A, const mat_t *B)
 {
-    assert(A != NULL && B != NULL);
-    assert(A->cols == B->rows);
-    assert(A->type == B->type);
+    if (A == NULL || B == NULL) return NULL;
+    if (A->cols != B->rows) return NULL;
+    if (A->type != B->type) return NULL;
 
     int m = A->rows, n = A->cols, p = B->cols;
 
     // Check column
-    assert(n > 0);
+    if (n <= 0) return NULL;
 
     // Result matrix
     mat_t *C = Mat(m, p, A->type);
-    assert(C != NULL);
+    if (C == NULL) return NULL;
 
     // Empty matrix
     if (m == 0 || p == 0) return C;
@@ -82,9 +82,9 @@ static mat_t *MatrixMultiplication(const mat_t *A, const mat_t *B)
 static mat_t *MatrixInverse(const mat_t *A)
 {
     // Check input matrix
-    assert(A != NULL);
-    assert(A->rows == A->cols);  // Must be square matrix
-    assert(A->type == DOUBLE);   // Only double type supported for inverse
+    if (A == NULL) return NULL;
+    if (A->rows != A->cols) return NULL;  // Must be square matrix
+    if (A->type != DOUBLE) return NULL;   // Only double type supported for inverse
 
     int n = A->rows;
 
@@ -100,7 +100,7 @@ static mat_t *MatrixInverse(const mat_t *A)
 
     // Create working copy for LU decomposition
     mat_t *LU = Mat(n, n, DOUBLE);
-    assert(LU != NULL);
+    if (LU == NULL) return NULL;
 
     // Copy original matrix
     for (int i = 0; i < n; ++i) {
@@ -111,14 +111,26 @@ static mat_t *MatrixInverse(const mat_t *A)
 
     // Create identity matrix for right-hand side
     mat_t *I = Eye(n, DOUBLE);
-    assert(I != NULL);
+    if (I == NULL) {
+        FreeMat(LU);
+        return NULL;
+    }
 
     // Create result matrix
     mat_t *inv = Mat(n, n, DOUBLE);
-    assert(inv != NULL);
+    if (inv == NULL) {
+        FreeMat(LU);
+        FreeMat(I);
+        return NULL;
+    }
 
     int *pivot = (int *)malloc(n * sizeof(int));
-    assert(pivot != NULL);
+    if (pivot == NULL) {
+        FreeMat(LU);
+        FreeMat(I);
+        FreeMat(inv);
+        return NULL;
+    }
 
     // Initialize pivot array
     for (int i = 0; i < n; ++i) {
@@ -219,15 +231,15 @@ static mat_t *MatrixInverse(const mat_t *A)
 // -----------------------------------------------------------------------------
 static mat_t *MatrixAddition(const mat_t *A, const mat_t *B)
 {
-    assert(A != NULL && B != NULL);
-    assert(A->type == DOUBLE && B->type == DOUBLE);  // Only double type supported
-    assert(A->rows == B->rows && A->cols == B->cols);  // Must have same dimensions
+    if (A == NULL || B == NULL) return NULL;
+    if (A->type != DOUBLE || B->type != DOUBLE) return NULL;  // Only double type supported
+    if (A->rows != B->rows || A->cols != B->cols) return NULL;  // Must have same dimensions
 
     int rows = A->rows, cols = A->cols;
 
     // Result matrix
     mat_t *C = Mat(rows, cols, DOUBLE);
-    assert(C != NULL);
+    if (C == NULL) return NULL;
 
     // Empty matrix
     if (rows == 0 || cols == 0) return C;
@@ -244,16 +256,18 @@ static mat_t *MatrixAddition(const mat_t *A, const mat_t *B)
 }
 
 // =============================================================================
-// Basic matrix/vector operations functions
+// Basic matrix/index vector operations functions
 // =============================================================================
 
 // Matrix generation
 mat_t *Mat(int rows, int cols, type_t type)
 {
-    assert(rows >= 0 && cols >= 0);
+    // Check input validity
+    if (rows < 0 || cols < 0) return NULL;
+    if (type != DOUBLE && type != INT) return NULL;  // Only DOUBLE and INT supported
 
     mat_t *mat = (mat_t *)malloc(sizeof(mat_t));
-    assert(mat != NULL);
+    if (mat == NULL) return NULL;
 
     mat->rows = rows;
     mat->cols = cols;
@@ -269,10 +283,16 @@ mat_t *Mat(int rows, int cols, type_t type)
 
 #ifdef _WIN32
     mat->data = _aligned_malloc(tsize, alignment);
-    assert(mat->data != NULL);
+    if (mat->data == NULL) {
+        free(mat);
+        return NULL;
+    }
 #else
     int err = posix_memalign(&mat->data, alignment, tsize);
-    assert(err == 0);
+    if (err != 0) {
+        free(mat);
+        return NULL;
+    }
 #endif
     return mat;
 }
@@ -292,29 +312,25 @@ void FreeMat(mat_t *mat)
 }
 
 // Index vector generation
-idx_t *Idx(int n)
+idx_t *Idx(int n, type_t type)
 {
     // Check number of indices
     if (n < 0) return NULL;
+    if (type != BOOL && type != INT) return NULL;  // Only BOOL and INT supported
 
     idx_t *idx = (idx_t *)malloc(sizeof(idx_t));
     if (idx == NULL) return NULL;
 
-    idx->n = (uint32_t)n;
+    idx->n = n;
+    idx->type = type;
     idx->idx = NULL;
 
     // If empty index vector, return valid struct with NULL data
     if (idx->n == 0) return idx;
 
-    // Allocate memory for index array
-    idx->idx = (uint32_t *)malloc(idx->n * sizeof(uint32_t));
-    if (idx->idx == NULL) {
-        free(idx);
-        return NULL;  // Memory allocation failed
-    }
-
     size_t alignment = MAT_ALIGNMENT;
-    size_t tsize = (size_t)idx->n * sizeof(uint32_t);
+    size_t esize = (type == BOOL) ? sizeof(bool) : sizeof(int);
+    size_t tsize = (size_t)idx->n * esize;
 
 #ifdef _WIN32
     idx->idx = _aligned_malloc(tsize, alignment);
@@ -350,11 +366,12 @@ void FreeIdx(idx_t *idx)
 mat_t *Eye(int size, type_t type)
 {
     // Check size
-    assert(size >= 0);
+    if (size < 0) return NULL;
+    if (type != DOUBLE && type != INT) return NULL;  // Only DOUBLE and INT supported
 
     // Generate identity matrix
     mat_t *I = Mat(size, size, type);
-    assert(I != NULL);
+    if (I == NULL) return NULL;
 
     if (size == 0) return I;
 
@@ -381,11 +398,12 @@ mat_t *Eye(int size, type_t type)
 mat_t *Zeros(int rows, int cols, type_t type)
 {
     // Check rows and columns
-    assert(rows >= 0 && cols >= 0);
+    if (rows < 0 || cols < 0) return NULL;
+    if (type != DOUBLE && type != INT) return NULL;  // Only DOUBLE and INT supported
 
     // Generate zero matrix
     mat_t *Z = Mat(rows, cols, type);
-    assert(Z != NULL);
+    if (Z == NULL) return NULL;
 
     // If empty matrix, return valid struct with NULL data
     if (rows == 0 || cols == 0) return Z;
@@ -401,11 +419,12 @@ mat_t *Zeros(int rows, int cols, type_t type)
 mat_t *Ones(int rows, int cols, type_t type)
 {
     // Check rows and columns
-    assert(rows >= 0 && cols >= 0);
+    if (rows < 0 || cols < 0) return NULL;
+    if (type != DOUBLE && type != INT) return NULL;  // Only DOUBLE and INT supported
 
     // Generate ones matrix
     mat_t *O = Mat(rows, cols, type);
-    assert(O != NULL);
+    if (O == NULL) return NULL;
 
     if (rows == 0 || cols == 0) return O;
 
@@ -426,19 +445,212 @@ mat_t *Ones(int rows, int cols, type_t type)
     return O;
 }
 
+// True index vector generation
+idx_t *TrueIdx(int n)
+{
+    idx_t *idx = Idx(n, BOOL);
+    if (idx == NULL) return NULL;
+
+    for (int i = 0; i < n; ++i) {
+        IdxSetB(idx, i, true);
+    }
+    return idx;
+}
+
+// False index vector generation
+idx_t *FalseIdx(int n)
+{
+    idx_t *idx = Idx(n, BOOL);
+    if (idx == NULL) return NULL;
+
+    for (int i = 0; i < n; ++i) {
+        IdxSetB(idx, i, false);
+    }
+    return idx;
+}
+
 // =============================================================================
 // Matrix operations functions
 // =============================================================================
+
+// Matrix copy - returns new matrix with copied data
+mat_t *MatCopy(const mat_t *A)
+{
+    // Check input matrix
+    if (A == NULL) return NULL;
+
+    // Create result matrix
+    mat_t *B = Mat(A->rows, A->cols, A->type);
+    if (B == NULL) return NULL;
+
+    // Copy matrix data with memcpy (much faster!)
+    if (A->rows > 0 && A->cols > 0) {
+        size_t esize = (A->type == DOUBLE) ? sizeof(double) : sizeof(int);
+        size_t total = (size_t)A->rows * A->cols * esize;
+        memcpy(B->data, A->data, total);
+    }
+
+    return B;
+}
+
+// Matrix in-place copy - copies source matrix data to existing destination matrix
+int MatCopyIn(mat_t *des, const mat_t *src)
+{
+    if (src == NULL || des == NULL) return 0;
+    if (src->rows != des->rows || src->cols != des->cols) return 0;
+    if (src->type != des->type) return 0;
+
+    size_t esize = (src->type == DOUBLE) ? sizeof(double) : sizeof(int);
+    size_t total = (size_t)src->rows * src->cols * esize;
+    memcpy(des->data, src->data, total);
+
+    return 1;
+}
+
+// Matrix vector indexing
+mat_t *MatVecIdx(const mat_t *mat, const idx_t *ridx, const idx_t *cidx)
+{
+    // Check input parameters
+    if (mat == NULL || ridx == NULL || cidx == NULL) return NULL;
+    if (ridx->type != INT || cidx->type != INT) return NULL;
+
+    // Extract row and column indices
+    int *rows = (int *)ridx->idx;
+    int *cols = (int *)cidx->idx;
+
+    // Check index validity
+    for (int i = 0; i < ridx->n; i++) {
+        if (rows[i] < 0 || rows[i] >= mat->rows) return NULL;
+    }
+    for (int j = 0; j < cidx->n; j++) {
+        if (cols[j] < 0 || cols[j] >= mat->cols) return NULL;
+    }
+
+    // Create result matrix
+    mat_t *result = Mat(ridx->n, cidx->n, mat->type);
+    if (!result) return NULL;
+
+    // Copy indexed elements
+    if (mat->type == DOUBLE) {
+        for (int j = 0; j < cidx->n; j++) {
+            for (int i = 0; i < ridx->n; i++) {
+                double val = MatGetD(mat, rows[i], cols[j]);
+                MatSetD(result, i, j, val);
+            }
+        }
+    } else { // INT
+        for (int j = 0; j < cidx->n; j++) {
+            for (int i = 0; i < ridx->n; i++) {
+                int val = MatGetI(mat, rows[i], cols[j]);
+                MatSetI(result, i, j, val);
+            }
+        }
+    }
+
+    return result;
+}
+
+// Matrix in-place vector indexing
+int MatVecIdxIn(mat_t *mat, const idx_t *ridx, const idx_t *cidx)
+{
+    if (mat == NULL || ridx == NULL || cidx == NULL) return 0;
+
+    // Create indexed matrix
+    mat_t *indexed = MatVecIdx(mat, ridx, cidx);
+    if (!indexed) return 0;
+
+    // Check if in-place operation is valid (same dimensions)
+    if (mat->rows != indexed->rows || mat->cols != indexed->cols) {
+        FreeMat(indexed);
+        return 0;
+    }
+
+    // Copy indexed data back to original matrix
+    int result = MatCopyIn(mat, indexed);
+    FreeMat(indexed);
+
+    return result;
+}
+
+// Matrix logical indexing
+mat_t *MatLogIdx(const mat_t *mat, const idx_t *ridx, const idx_t *cidx)
+{
+    // Check input parameters
+    if (mat == NULL || ridx == NULL || cidx == NULL) return NULL;
+    if (ridx->type != BOOL || cidx->type != BOOL) return NULL;
+    if (ridx->n != mat->rows || cidx->n != mat->cols) return NULL;
+
+    bool *row_mask = (bool *)ridx->idx;
+    bool *col_mask = (bool *)cidx->idx;
+
+    // Count selected rows and columns
+    int selected_rows = 0, selected_cols = 0;
+    for (int i = 0; i < ridx->n; i++) {
+        if (row_mask[i]) selected_rows++;
+    }
+    for (int j = 0; j < cidx->n; j++) {
+        if (col_mask[j]) selected_cols++;
+    }
+
+    // Create result matrix
+    mat_t *result = Mat(selected_rows, selected_cols, mat->type);
+    if (!result) return NULL;
+
+    // Copy selected elements
+    int result_i = 0;
+    for (int i = 0; i < mat->rows; i++) {
+        if (!row_mask[i]) continue;
+
+        int result_j = 0;
+        for (int j = 0; j < mat->cols; j++) {
+            if (!col_mask[j]) continue;
+
+            if (mat->type == DOUBLE) {
+                double val = MatGetD(mat, i, j);
+                MatSetD(result, result_i, result_j, val);
+            } else { // INT
+                int val = MatGetI(mat, i, j);
+                MatSetI(result, result_i, result_j, val);
+            }
+            result_j++;
+        }
+        result_i++;
+    }
+
+    return result;
+}
+
+// Matrix in-place logical indexing
+int MatLogIdxIn(mat_t *mat, const idx_t *ridx, const idx_t *cidx)
+{
+    if (mat == NULL || ridx == NULL || cidx == NULL) return 0;
+
+    // Create logically indexed matrix
+    mat_t *indexed = MatLogIdx(mat, ridx, cidx);
+    if (!indexed) return 0;
+
+    // Check if in-place operation is valid (same dimensions)
+    if (mat->rows != indexed->rows || mat->cols != indexed->cols) {
+        FreeMat(indexed);
+        return 0;
+    }
+
+    // Copy indexed data back to original matrix
+    int result = MatCopyIn(mat, indexed);
+    FreeMat(indexed);
+
+    return result;
+}
 
 // Matrix transpose
 mat_t *MatTr(const mat_t *A)
 {
     // Check input matrix
-    assert(A != NULL);
+    if (A == NULL) return NULL;
 
     // Generate transposed matrix
     mat_t *T = Mat(A->cols, A->rows, A->type);
-    assert(T != NULL);
+    if (T == NULL) return NULL;
 
     if (A->rows == 0 || A->cols == 0) {
         // Empty matrix
@@ -465,7 +677,7 @@ mat_t *MatTr(const mat_t *A)
 // In-place matrix transpose (m×n → n×m)
 int MatTrIn(mat_t *A)
 {
-    assert(A != NULL);
+    if (A == NULL) return 0;
 
     // Create transposed matrix
     mat_t *At = MatTr(A);
@@ -491,8 +703,8 @@ int MatTrIn(mat_t *A)
 // Matrix addition [C = a * A(^T) + b * B(^T)]
 mat_t *MatAdd(double a, const mat_t *A, bool trA, double b, const mat_t *B, bool trB)
 {
-    assert(A != NULL && B != NULL);
-    assert(A->type == DOUBLE && B->type == DOUBLE);  // Only double type supported
+    if (A == NULL || B == NULL) return NULL;
+    if (A->type != DOUBLE || B->type != DOUBLE) return NULL;  // Only double type supported
 
     // Create temporary matrices for scaled and/or transposed operands
     mat_t *A_temp = NULL;
@@ -563,8 +775,8 @@ mat_t *MatAdd(double a, const mat_t *A, bool trA, double b, const mat_t *B, bool
 // In-place matrix addition [A = a * A(^T) + b * B(^T)]
 int MatAddIn(mat_t *A, double a, bool trA, double b, const mat_t *B, bool trB)
 {
-    assert(A != NULL && B != NULL);
-    assert(A->type == DOUBLE && B->type == DOUBLE);  // Only double type supported
+    if (A == NULL || B == NULL) return 0;
+    if (A->type != DOUBLE || B->type != DOUBLE) return 0;  // Only double type supported
 
     // Compute extended addition
     mat_t *C = MatAdd(a, A, trA, b, B, trB);
@@ -588,8 +800,10 @@ int MatAddIn(mat_t *A, double a, bool trA, double b, const mat_t *B, bool trB)
 // Matrix multiplication [C = a * A(^T) * b * B(^T)]
 mat_t *MatMul(double a, const mat_t *A, bool trA, double b, const mat_t *B, bool trB)
 {
-    assert(A != NULL && B != NULL);
-    assert(A->type == DOUBLE && B->type == DOUBLE);  // Only double type supported
+    // Check input matrices
+    if (A == NULL || B == NULL) return NULL;
+    if (A->type != DOUBLE || B->type != DOUBLE) return NULL;
+    if (A->cols != B->rows) return NULL;
 
     // Create temporary matrices for scaled and/or transposed operands
     mat_t *A_temp = NULL;
@@ -660,9 +874,9 @@ mat_t *MatMul(double a, const mat_t *A, bool trA, double b, const mat_t *B, bool
 // Matrix inverse [Ai = inv(a * A(^T))]
 mat_t *MatInv(double a, const mat_t *A, bool trA)
 {
-    assert(A != NULL);
-    assert(A->type == DOUBLE);  // Only double type supported
-    assert(A->rows == A->cols); // Must be square matrix
+    if (A == NULL) return NULL;
+    if (A->type != DOUBLE) return NULL;  // Only double type supported
+    if (A->rows != A->cols) return NULL; // Must be square matrix
 
     // Create temporary matrix for scaled and/or transposed operand
     mat_t *A_temp = NULL;
@@ -699,8 +913,8 @@ mat_t *MatInv(double a, const mat_t *A, bool trA)
 // In-place matrix multiplication [A = a * A(^T) * b * B(^T)]
 int MatMulIn(mat_t *A, double a, bool trA, double b, const mat_t *B, bool trB)
 {
-    assert(A != NULL && B != NULL);
-    assert(A->type == DOUBLE && B->type == DOUBLE);  // Only double type supported
+    if (A == NULL || B == NULL) return 0;
+    if (A->type != DOUBLE || B->type != DOUBLE) return 0;  // Only double type supported
 
     // Compute matrix multiplication
     mat_t *C = MatMul(a, A, trA, b, B, trB);
@@ -728,9 +942,9 @@ int MatMulIn(mat_t *A, double a, bool trA, double b, const mat_t *B, bool trB)
 // In-place matrix inverse [A = inv(a * A(^T))]
 int MatInvIn(mat_t *A, double a, bool trA)
 {
-    assert(A != NULL);
-    assert(A->type == DOUBLE);  // Only double type supported
-    assert(A->rows == A->cols); // Must be square matrix
+    if (A == NULL) return 0;
+    if (A->type != DOUBLE) return 0;  // Only double type supported
+    if (A->rows != A->cols) return 0; // Must be square matrix
 
     // Compute matrix inverse
     mat_t *Ai = MatInv(a, A, trA);
@@ -746,7 +960,7 @@ int MatInvIn(mat_t *A, double a, bool trA)
 }
 
 // =============================================================================
-// Vector (Matrix of 1 row) operations functions
+// Vector (Matrix of m x 1) operations functions
 // =============================================================================
 
 // Vector dot product (inner product, DOUBLE only) [c = a^T * b]
@@ -759,12 +973,16 @@ int Dot(const mat_t *a, const mat_t *b, double *c)
     if (a->type != DOUBLE || b->type != DOUBLE) return 0;
 
     // For size 0 vectors, dot product is 0.0
-    if (a->cols == 0) return 0;
+    if (a->rows == 0) {
+        *c = 0.0;
+        return 1;
+    }
 
     *c = 0.0;
 
-    for (int i = 0; i < a->cols; ++i) {
-        *c += MatGetD(a, 0, i) * MatGetD(b, 0, i);
+    // Correct implementation for column vectors (Nx1)
+    for (int i = 0; i < a->rows; ++i) {
+        *c += MatGetD(a, i, 0) * MatGetD(b, i, 0);
     }
 
     return 1;
@@ -787,17 +1005,23 @@ int Cross3(const mat_t *a, const mat_t *b, mat_t *c)
     return 1;
 }
 
-// Vector 2-norm (Euclidean norm, DOUBLE only)
+// Vector 2-norm (Euclidean norm, DOUBLE only, m x 1 or 1 x n)
 double Norm(const mat_t *a)
 {
     // Check input matrix
     if (a == NULL) return 0.0;
-    if (a->cols != 1) return 0.0;
+    if (a->cols != 1 && a->rows != 1) return 0.0;
     if (a->type != DOUBLE) return 0.0;
 
     double norm = 0.0;
-    for (int i = 0; i < a->rows; ++i) {
-        norm += MatGetD(a, i, 0) * MatGetD(a, i, 0);
+    if (a->cols == 1) {
+        for (int i = 0; i < a->rows; ++i) {
+            norm += MatGetD(a, i, 0) * MatGetD(a, i, 0);
+        }
+    } else {
+        for (int i = 0; i < a->cols; ++i) {
+            norm += MatGetD(a, 0, i) * MatGetD(a, 0, i);
+        }
     }
 
     return sqrt(norm);
@@ -811,9 +1035,9 @@ double Norm(const mat_t *a)
 double MatDet(const mat_t *A)
 {
     // Check input matrix
-    assert(A != NULL);
-    assert(A->rows == A->cols);  // Must be square matrix
-    assert(A->type == DOUBLE);   // Only double type supported for determinant
+    if (A == NULL) return 0.0;
+    if (A->rows != A->cols) return 0.0;  // Must be square matrix
+    if (A->type != DOUBLE) return 0.0;   // Only double type supported for determinant
 
     int n = A->rows;
 
@@ -825,7 +1049,7 @@ double MatDet(const mat_t *A)
 
     // Create working copy of matrix for LU decomposition
     mat_t *LU = Mat(n, n, DOUBLE);
-    assert(LU != NULL);
+    if (LU == NULL) return 0.0;
 
     // Copy original matrix to LU
     for (int i = 0; i < n; ++i) {
@@ -836,7 +1060,10 @@ double MatDet(const mat_t *A)
 
     double det = 1.0;
     int *pivot = (int *)malloc(n * sizeof(int));
-    assert(pivot != NULL);
+    if (pivot == NULL) {
+        FreeMat(LU);
+        return 0.0;
+    }
 
     // Initialize pivot array
     for (int i = 0; i < n; ++i) {
@@ -906,68 +1133,102 @@ double MatDet(const mat_t *A)
     return det;
 }
 
-// Matrix copy - returns new matrix with copied data
-mat_t *MatCopy(const mat_t *A)
-{
-    // Check input matrix
-    assert(A != NULL);
-
-    // Create result matrix
-    mat_t *B = Mat(A->rows, A->cols, A->type);
-    assert(B != NULL);
-
-    // Copy matrix data with memcpy (much faster!)
-    if (A->rows > 0 && A->cols > 0) {
-        size_t esize = (A->type == DOUBLE) ? sizeof(double) : sizeof(int);
-        size_t total = (size_t)A->rows * A->cols * esize;
-        memcpy(B->data, A->data, total);
-    }
-
-    return B;
-}
-
-// Matrix in-place copy - copies source matrix data to existing destination matrix
-int MatCopyIn(mat_t *des, const mat_t *src)
-{
-    assert(src != NULL && des != NULL);
-    assert(src->rows == des->rows && src->cols == des->cols);
-    assert(src->type == des->type);
-
-    size_t esize = (src->type == DOUBLE) ? sizeof(double) : sizeof(int);
-    size_t total = (size_t)src->rows * src->cols * esize;
-    memcpy(des->data, src->data, total);
-
-    return 1;
-}
-
 // =============================================================================
 // Advanced algorithms functions
 // =============================================================================
 
+// Linear interpolation (column vectors only, no extrapolation)
+int Interp(const mat_t *x0, const mat_t *y0, double x, double *y)
+{
+    // Input validation
+    if (x0 == NULL || y0 == NULL || y == NULL) return 0;
+    if (x0->type != DOUBLE || y0->type != DOUBLE) return 0;
+
+    // Only accept column vectors
+    if (x0->cols != 1 || y0->cols != 1) return 0;
+    if (x0->rows != y0->rows) return 0;
+
+    int n = x0->rows;
+    if (n < 2) return 0;  // Need at least 2 points
+
+    // Check if x0 is sorted in ascending order (no duplicates)
+    for (int i = 0; i < n - 1; i++) {
+        if (MatGetD(x0, i, 0) >= MatGetD(x0, i + 1, 0)) return 0;
+    }
+
+    // Handle boundary cases - return boundary values (no extrapolation)
+    if (x <= MatGetD(x0, 0, 0)) {
+        *y = MatGetD(y0, 0, 0);
+        return 1;
+    }
+
+    if (x >= MatGetD(x0, n - 1, 0)) {
+        *y = MatGetD(y0, n - 1, 0);
+        return 1;
+    }
+
+    // Binary search for interpolation interval
+    int left = 0, right = n - 1;
+    while (right - left > 1) {
+        int mid = (left + right) / 2;
+        if (MatGetD(x0, mid, 0) <= x) {
+            left = mid;
+        } else {
+            right = mid;
+        }
+    }
+
+    // Linear interpolation: y = y0 + (x - x0) * (y1 - y0) / (x1 - x0)
+    double x0_val = MatGetD(x0, left, 0);
+    double x1_val = MatGetD(x0, right, 0);
+    double y0_val = MatGetD(y0, left, 0);
+    double y1_val = MatGetD(y0, right, 0);
+
+    *y = y0_val + (x - x0_val) * (y1_val - y0_val) / (x1_val - x0_val);
+
+    return 1;
+}
+
 // Least square estimation
 int Lsq(const mat_t *H, const mat_t *y, const mat_t *R, mat_t *x, mat_t *P, mat_t *Hl)
 {
-    assert(H != NULL && y != NULL && R != NULL && x != NULL && P != NULL);
+    if (H == NULL) return 0;
+
+    // Check if y is required (only when x is not NULL)
+    if (x != NULL && y == NULL) return 0;
 
     // Check measurement dimension
-    assert(H->rows == y->rows && H->rows == R->rows);
+    if (y != NULL && H->rows != y->rows) return 0;
+    if (R != NULL && H->rows != R->rows) return 0;
 
-    // Check state dimension
-    assert(H->cols == x->rows && H->cols == P->rows && H->cols == P->cols);
+    // Check state dimension for x if provided
+    if (x != NULL) {
+        if (H->cols != x->rows) return 0;
+        if (x->type != DOUBLE) return 0;
+    }
+
+    // Check state dimension for P if provided
+    if (P != NULL) {
+        if (H->cols != P->rows || H->cols != P->cols) return 0;
+        if (P->type != DOUBLE) return 0;
+    }
 
     // Check matrix type (Only double type is supported)
-    assert(H->type == DOUBLE && y->type == DOUBLE && R->type == DOUBLE && P->type == DOUBLE);
+    if (H->type != DOUBLE) return 0;
+    if (y != NULL && y->type != DOUBLE) return 0;
+    if (R != NULL && R->type != DOUBLE) return 0;
 
     // Check Least square inverse matrix
     if (Hl != NULL) {
-        assert(Hl->rows == H->cols && Hl->cols == H->rows);
-        assert(Hl->type == DOUBLE);
+        if (Hl->rows != H->cols || Hl->cols != H->rows) return 0;
+        if (Hl->type != DOUBLE) return 0;
     }
 
     // Status variable: 1 = success, 0 = failure
     int info = 1;
 
     // Declare all temporary matrices (initialized to NULL)
+    mat_t *R_local  = NULL;  // For R = I when R is NULL
     mat_t *Ht       = NULL;
     mat_t *W        = NULL;
     mat_t *HtW      = NULL;
@@ -977,6 +1238,13 @@ int Lsq(const mat_t *H, const mat_t *y, const mat_t *R, mat_t *x, mat_t *P, mat_
     mat_t *P_temp   = NULL;
     mat_t *L        = NULL;
     mat_t *Lt       = NULL;
+
+    // Step 0: Create identity matrix for R if R is NULL
+    if (R == NULL) {
+        R_local = Eye(H->rows, DOUBLE);
+        if (R_local == NULL) info = 0;
+        R = R_local;  // Use local identity matrix
+    }
 
     // Step 1: H' (transpose of H)
     if (info) {
@@ -1021,7 +1289,7 @@ int Lsq(const mat_t *H, const mat_t *y, const mat_t *R, mat_t *x, mat_t *P, mat_
     }
 
     // Step 8: x = L * y (least square estimation)
-    if (info) {
+    if (info && x != NULL) {
         x_temp = MatMul(1.0, L, false, 1.0, y, false);
         if (x_temp == NULL) info = 0;
     }
@@ -1043,12 +1311,13 @@ int Lsq(const mat_t *H, const mat_t *y, const mat_t *R, mat_t *x, mat_t *P, mat_
 
     // Copy results to output matrices only if successful
     if (info) {
-        if (!MatCopyIn(x, x_temp)) info = 0;
-        if (info && !MatCopyIn(P, P_temp)) info = 0;
-        if (info && Hl != NULL && !MatCopyIn(Hl, L)) info = 0;
+        if (        x  != NULL && x_temp != NULL && !MatCopyIn(x , x_temp)) info = 0;
+        if (info && P  != NULL && !MatCopyIn(P , P_temp)) info = 0;
+        if (info && Hl != NULL && !MatCopyIn(Hl, L     )) info = 0;
     }
 
     // Clean up all temporary matrices (FreeMat handles NULL pointers safely)
+    FreeMat(R_local);
     FreeMat(Ht);
     FreeMat(W);
     FreeMat(HtW);
@@ -1065,40 +1334,51 @@ int Lsq(const mat_t *H, const mat_t *y, const mat_t *R, mat_t *x, mat_t *P, mat_
 // Extended Kalman filter
 int Ekf(const mat_t *H, const mat_t *v, const mat_t *R, mat_t *x, mat_t *P, mat_t *K)
 {
-    assert(H != NULL && v != NULL && R != NULL && x != NULL && P != NULL);
+    if (H == NULL || v == NULL || R == NULL || P == NULL) return 0;
 
     // Check measurement dimension
-    assert(H->rows == v->rows && H->rows == R->rows);
+    if (H->rows != v->rows || H->rows != R->rows) return 0;
 
-    // Check state dimension
-    assert(H->cols == x->rows && H->cols == P->rows && H->cols == P->cols);
+    // Check state dimension for x if provided
+    if (x != NULL) {
+        if (H->cols != x->rows) return 0;
+        if (x->type != DOUBLE) return 0;
+    }
+
+    // Check state dimension for P
+    if (H->cols != P->rows || H->cols != P->cols) return 0;
 
     // Check matrix type (Only double type is supported)
-    assert(H->type == DOUBLE && v->type == DOUBLE && R->type == DOUBLE && P->type == DOUBLE);
+    if (H->type != DOUBLE || v->type != DOUBLE || R->type != DOUBLE || P->type != DOUBLE) return 0;
 
     // Check Kalman gain matrix
     if (K != NULL) {
-        assert(K->rows == H->cols && K->cols == H->rows);
-        assert(K->type == DOUBLE);
+        if (K->rows != H->cols || K->cols != H->rows) return 0;
+        if (K->type != DOUBLE) return 0;
     }
 
     // Status variable: 1 = success, 0 = failure
     int info = 1;
 
     // Declare all temporary matrices (initialized to NULL)
-    mat_t *Ht       = NULL;
-    mat_t *HP       = NULL;
-    mat_t *HPHt     = NULL;
-    mat_t *S        = NULL;
-    mat_t *Sinv     = NULL;
-    mat_t *PHt      = NULL;
-    mat_t *K_temp   = NULL;
-    mat_t *Kv       = NULL;
-    mat_t *x_temp   = NULL;
-    mat_t *KH       = NULL;
-    mat_t *I        = NULL;
-    mat_t *IminusKH = NULL;
-    mat_t *P_temp   = NULL;
+    mat_t *Ht         = NULL;
+    mat_t *HP         = NULL;
+    mat_t *HPHt       = NULL;
+    mat_t *S          = NULL;
+    mat_t *Sinv       = NULL;
+    mat_t *PHt        = NULL;
+    mat_t *K_temp     = NULL;
+    mat_t *Kv         = NULL;
+    mat_t *x_temp     = NULL;
+    mat_t *KH         = NULL;
+    mat_t *I          = NULL;
+    mat_t *IminusKH   = NULL;
+    mat_t *IminusKHt  = NULL;
+    mat_t *KRKt       = NULL;
+    mat_t *Kt         = NULL;
+    mat_t *KR         = NULL;
+    mat_t *P_temp1    = NULL;
+    mat_t *P_temp2    = NULL;
 
     // Step 1: H' (transpose of H)
     if (info) {
@@ -1152,18 +1432,18 @@ int Ekf(const mat_t *H, const mat_t *v, const mat_t *R, mat_t *x, mat_t *P, mat_
         if (K_temp == NULL) info = 0;
     }
 
-    // Step 8: x = x + K * v (state update)
-    if (info) {
+    // Step 8: x = x + K * v (state update, only if x is provided)
+    if (info && x != NULL) {
         Kv = MatMul(1.0, K_temp, false, 1.0, v, false);
         if (Kv == NULL) info = 0;
     }
 
-    if (info) {
+    if (info && x != NULL) {
         x_temp = MatCopy(x);
         if (x_temp == NULL) info = 0;
     }
 
-    if (info) {
+    if (info && x != NULL) {
         // x_temp = x + Kv
         for (int i = 0; i < x_temp->rows && info; ++i) {
             for (int j = 0; j < x_temp->cols && info; ++j) {
@@ -1181,7 +1461,7 @@ int Ekf(const mat_t *H, const mat_t *v, const mat_t *R, mat_t *x, mat_t *P, mat_
 
     // Step 10: I = eye(n) (identity matrix)
     if (info) {
-        I = Eye(x->rows, DOUBLE);
+        I = Eye(P->rows, DOUBLE);
         if (I == NULL) info = 0;
     }
 
@@ -1201,16 +1481,59 @@ int Ekf(const mat_t *H, const mat_t *v, const mat_t *R, mat_t *x, mat_t *P, mat_
         }
     }
 
-    // Step 12: P = (I - K * H) * P (covariance update)
+    // Step 12: Joseph form covariance update: P = (I - K*H) * P * (I - K*H)' + K * R * K'
+
+    // Step 12a: (I - K*H)' = transpose of (I - K*H)
     if (info) {
-        P_temp = MatMul(1.0, IminusKH, false, 1.0, P, false);
-        if (P_temp == NULL) info = 0;
+        IminusKHt = MatTr(IminusKH);
+        if (IminusKHt == NULL) info = 0;
+    }
+
+    // Step 12b: P_temp1 = (I - K*H) * P
+    if (info) {
+        P_temp1 = MatMul(1.0, IminusKH, false, 1.0, P, false);
+        if (P_temp1 == NULL) info = 0;
+    }
+
+    // Step 12c: P_temp2 = P_temp1 * (I - K*H)' = (I - K*H) * P * (I - K*H)'
+    if (info) {
+        P_temp2 = MatMul(1.0, P_temp1, false, 1.0, IminusKHt, false);
+        if (P_temp2 == NULL) info = 0;
+    }
+
+    // Step 12d: K' = transpose of K
+    if (info) {
+        Kt = MatTr(K_temp);
+        if (Kt == NULL) info = 0;
+    }
+
+    // Step 12e: KR = K * R
+    if (info) {
+        KR = MatMul(1.0, K_temp, false, 1.0, R, false);
+        if (KR == NULL) info = 0;
+    }
+
+    // Step 12f: KRKt = K * R * K'
+    if (info) {
+        KRKt = MatMul(1.0, KR, false, 1.0, Kt, false);
+        if (KRKt == NULL) info = 0;
+    }
+
+    // Step 12g: P = (I - K*H) * P * (I - K*H)' + K * R * K' (Joseph form)
+    if (info) {
+        // P_temp2 = P_temp2 + KRKt
+        for (int i = 0; i < P_temp2->rows && info; ++i) {
+            for (int j = 0; j < P_temp2->cols && info; ++j) {
+                double val = MatGetD(P_temp2, i, j) + MatGetD(KRKt, i, j);
+                MatSetD(P_temp2, i, j, val);
+            }
+        }
     }
 
     // Copy results to output matrices only if successful
     if (info) {
-        if (!MatCopyIn(x, x_temp)) info = 0;
-        if (info && !MatCopyIn(P, P_temp)) info = 0;
+        if (x != NULL && !MatCopyIn(x, x_temp)) info = 0;
+        if (info && !MatCopyIn(P, P_temp2)) info = 0;
         if (info && K != NULL && !MatCopyIn(K, K_temp)) info = 0;
     }
 
@@ -1227,10 +1550,22 @@ int Ekf(const mat_t *H, const mat_t *v, const mat_t *R, mat_t *x, mat_t *P, mat_
     FreeMat(KH);
     FreeMat(I);
     FreeMat(IminusKH);
-    FreeMat(P_temp);
+    FreeMat(IminusKHt);
+    FreeMat(KRKt);
+    FreeMat(Kt);
+    FreeMat(KR);
+    FreeMat(P_temp1);
+    FreeMat(P_temp2);
 
     return info;
 }
+
+
+// =============================================================================
+// Matrix indexing functions
+// =============================================================================
+
+
 
 // =============================================================================
 // End of file

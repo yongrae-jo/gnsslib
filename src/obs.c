@@ -11,6 +11,15 @@
 #include "ephemeris.h"  // for GetEphType
 
 // =============================================================================
+// Static type definitions
+// =============================================================================
+
+typedef struct fmap {       // Frequency band and attribute struct
+    int  band;              // Frequency band index
+    char *attr;             // Frequency attribute string
+} fmap_t;
+
+// =============================================================================
 // Static global variables
 // =============================================================================
 
@@ -99,6 +108,77 @@ static const char *OBSCODES[] = {
     "L9C",     // IRN S(C)
     "L9X"      // IRN S(B+C)
 };
+
+// GPS frequency band and attribute mapping
+static const fmap_t FMAP_GPS[] = {
+    {1, "C"},           // GPS L1C/A
+    {2, "W"},           // GPS L2W
+    {5, "IQX"},         // GPS L5  (I,Q,X)
+    {1, "SLX"},         // GPS L1C (S,L,X)
+    {2, "SLX"},         // GPS L2C (S,L,X)
+};
+
+// GLO frequency band and attribute mapping
+static const fmap_t FMAP_GLO[] = {
+    {1, "C"},           // GLO G1C
+    {2, "C"},           // GLO G2C
+    {3, "IQX"},         // GLO G3  (I,Q,X)
+    {4, "ABX"},         // GLO G1A (A,B,X)
+    {6, "ABX"},         // GLO G2A (A,B,X)
+};
+
+// GAL frequency band and attribute mapping for F/NAV
+static const fmap_t FMAP_GAL_FNAV[] = {
+    {1, "BCX"},         // GAL E1   (B,C,X)
+    {5, "IQX"},         // GAL E5A  (I,Q,X)
+    {7, "IQX"},         // GAL E5B  (I,Q,X)
+    {6, "BCX"},         // GAL E6   (B,C,X)
+    {8, "IQX"},         // GAL E5AB (I,Q,X)
+};
+
+// GAL frequency band and attribute mapping for I/NAV
+static const fmap_t FMAP_GAL_INAV[] = {
+    {1, "BCX"},         // GAL E1   (B,C,X)
+    {7, "IQX"},         // GAL E5B  (I,Q,X)
+    {5, "IQX"},         // GAL E5A  (I,Q,X)
+    {6, "BCX"},         // GAL E6   (B,C,X)
+    {8, "IQX"},         // GAL E5AB (I,Q,X)
+};
+
+// BDS frequency band and attribute mapping
+static const fmap_t FMAP_BDS[] = {
+    {2, "I"},           // BDS B1   (I)
+    {6, "I"},           // BDS B3   (I)
+    {7, "I"},           // BDS B2   (I)
+    {1, "DPX"},         // BDS B1C  (D, P, X)
+    {7, "DPZ"},         // BDS B2B  (D, P, Z)
+    {5, "DPX"},         // BDS B2A  (D, P, X)
+    {8, "DPX"},         // BDS B2AB (D, P, X)
+};
+
+// QZS frequency band and attribute mapping
+static const fmap_t FMAP_QZS[] = {
+    {1, "C"},           // QZS L1C/A
+    {2, "SLX"},         // QZS L2C (S,L,X)
+    {5, "IQX"},         // QZS L5  (I,Q,X)
+    {6, "SLX"},         // QZS L6  (S,L,X)
+    {1, "SLX"},         // QZS L1C (S,L,X)
+    {5, "DPZ"},         // QZS L5S (D,P,Z)
+};
+
+// IRN frequency band and attribute mapping
+static const fmap_t FMAP_IRN[] = {
+    {5, "BCX"},         // IRN L5  (B,C,X)
+    {9, "BCX"},         // IRN S   (B,C,X)
+};
+
+// SBS frequency band and attribute mapping
+static const fmap_t FMAP_SBS[] = {
+    {1, "C"},           // SBS L1C/A
+    {5, "IQX"},         // SBS L5  (I,Q,X)
+};
+
+
 
 // =============================================================================
 // Global variables
@@ -277,30 +357,21 @@ static int Code2Fidx_GPS(int code)
     // Check if the observation code is valid
     if (codeStr.str[0] != 'L') return 0;
 
-    if (codeStr.str[1] == '1') {
-        // L1 Legacy signal (1575.42 MHz) → index 1
-        if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // L1C/A
+    // Maximum number of frequency index
+    int maxf = sizeof(FMAP_GPS) / sizeof(FMAP_GPS[0]);
 
-        // L1C Modernized signal (1575.42 MHz) → index 4
-        if (codeStr.str[2] == 'S' && 4 <= NFREQ) return 4;  // L1C(D)
-        if (codeStr.str[2] == 'L' && 4 <= NFREQ) return 4;  // L1C(P)
-        if (codeStr.str[2] == 'X' && 4 <= NFREQ) return 4;  // L1C(D+P)
-    }
-    else if (codeStr.str[1] == '2') {
-        // L2 Legacy signal (1227.60 MHz) → index 2
-        if (codeStr.str[2] == 'W' && 2 <= NFREQ) return 2;  // L2W (Z-tracking)
+    for (int f = 0; f < NFREQ && f < maxf; f++) {
 
-        // L2C Modernized signal (1227.60 MHz) → index 5
-        if (codeStr.str[2] == 'S' && 5 <= NFREQ) return 5;  // L2C(M)
-        if (codeStr.str[2] == 'L' && 5 <= NFREQ) return 5;  // L2C(L)
-        if (codeStr.str[2] == 'X' && 5 <= NFREQ) return 5;  // L2C(M+L)
+        // Check band index
+        if (Str2Band(codeStr.str[1]) != FMAP_GPS[f].band) continue;
+
+        // Check attribute (one of the attributes must match)
+        if (strchr(FMAP_GPS[f].attr, codeStr.str[2]) == NULL) continue;
+
+        // Return frequency index
+        return f + 1;
     }
-    else if (codeStr.str[1] == '5') {
-        // L5 signal (1176.45 MHz) → index 3
-        if (codeStr.str[2] == 'I' && 3 <= NFREQ) return 3;  // L5(I)
-        if (codeStr.str[2] == 'Q' && 3 <= NFREQ) return 3;  // L5(Q)
-        if (codeStr.str[2] == 'X' && 3 <= NFREQ) return 3;  // L5(I+Q)
-    }
+
     return 0;
 }
 
@@ -327,32 +398,21 @@ static int Code2Fidx_GLO(int code)
     // Check if the observation code is valid
     if (codeStr.str[0] != 'L') return 0;
 
-    if (codeStr.str[1] == '1') {
-        // G1C signal (1602.0 MHz) → index 1
-        if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // G1C
+    // Maximum number of frequency index
+    int maxf = sizeof(FMAP_GLO) / sizeof(FMAP_GLO[0]);
+
+    for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+        // Check band index
+        if (Str2Band(codeStr.str[1]) != FMAP_GLO[f].band) continue;
+
+        // Check attribute (one of the attributes must match)
+        if (strchr(FMAP_GLO[f].attr, codeStr.str[2]) == NULL) continue;
+
+        // Return frequency index
+        return f + 1;
     }
-    else if (codeStr.str[1] == '2') {
-        // G2C signal (1246.0 MHz) → index 2
-        if (codeStr.str[2] == 'C' && 2 <= NFREQ) return 2;  // G2C
-    }
-    else if (codeStr.str[1] == '3') {
-        // G3 signal (1202.025 MHz) → index 3
-        if (codeStr.str[2] == 'I' && 3 <= NFREQ) return 3;  // G3(I)
-        if (codeStr.str[2] == 'Q' && 3 <= NFREQ) return 3;  // G3(Q)
-        if (codeStr.str[2] == 'X' && 3 <= NFREQ) return 3;  // G3(I+Q)
-    }
-    else if (codeStr.str[1] == '4') {
-        // G1A signal (1600.995 MHz) → index 4
-        if (codeStr.str[2] == 'A' && 4 <= NFREQ) return 4;  // G1A(A)
-        if (codeStr.str[2] == 'B' && 4 <= NFREQ) return 4;  // G1A(B)
-        if (codeStr.str[2] == 'X' && 4 <= NFREQ) return 4;  // G1A(A+B)
-    }
-    else if (codeStr.str[1] == '5') {
-        // G2A signal (1248.06 MHz) → index 5
-        if (codeStr.str[2] == 'A' && 5 <= NFREQ) return 5;  // G2A(A)
-        if (codeStr.str[2] == 'B' && 5 <= NFREQ) return 5;  // G2A(B)
-        if (codeStr.str[2] == 'X' && 5 <= NFREQ) return 5;  // G2A(A+B)
-    }
+
     return 0;
 }
 
@@ -395,69 +455,37 @@ static int Code2Fidx_GAL(int code)
     if (sysType == 0) {
         // I/NAV mode
 
-        if (codeStr.str[1] == '1') {
-            // E1 signal (1575.42 MHz) → index 1
-            if (codeStr.str[2] == 'B' && 1 <= NFREQ) return 1;  // E1(B)
-            if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // E1(C)
-            if (codeStr.str[2] == 'X' && 1 <= NFREQ) return 1;  // E1(B+C)
-        }
-        else if (codeStr.str[1] == '7') {
-            // E5B signal (1207.14 MHz) → index 2
-            if (codeStr.str[2] == 'I' && 2 <= NFREQ) return 2;  // E5B(I)
-            if (codeStr.str[2] == 'Q' && 2 <= NFREQ) return 2;  // E5B(Q)
-            if (codeStr.str[2] == 'X' && 2 <= NFREQ) return 2;  // E5B(I+Q)
-        }
-        else if (codeStr.str[1] == '5') {
-            // E5A signal (1176.45 MHz) → index 3
-            if (codeStr.str[2] == 'I' && 3 <= NFREQ) return 3;  // E5A(I)
-            if (codeStr.str[2] == 'Q' && 3 <= NFREQ) return 3;  // E5A(Q)
-            if (codeStr.str[2] == 'X' && 3 <= NFREQ) return 3;  // E5A(I+Q)
-        }
-        else if (codeStr.str[1] == '6') {
-            // E6 signal (1278.75 MHz) → index 4
-            if (codeStr.str[2] == 'B' && 4 <= NFREQ) return 4;  // E6(B)
-            if (codeStr.str[2] == 'C' && 4 <= NFREQ) return 4;  // E6(C)
-            if (codeStr.str[2] == 'X' && 4 <= NFREQ) return 4;  // E6(B+C)
-        }
-        else if (codeStr.str[1] == '8') {
-            // E5AB signal (1191.795 MHz) → index 5
-            if (codeStr.str[2] == 'I' && 5 <= NFREQ) return 5;  // E5AB(I)
-            if (codeStr.str[2] == 'Q' && 5 <= NFREQ) return 5;  // E5AB(Q)
-            if (codeStr.str[2] == 'X' && 5 <= NFREQ) return 5;  // E5AB(I+Q)
+        // Maximum number of frequency index
+        int maxf = sizeof(FMAP_GAL_INAV) / sizeof(FMAP_GAL_INAV[0]);
+
+        for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+            // Check band index
+            if (Str2Band(codeStr.str[1]) != FMAP_GAL_INAV[f].band) continue;
+
+            // Check attribute (one of the attributes must match)
+            if (strchr(FMAP_GAL_INAV[f].attr, codeStr.str[2]) == NULL) continue;
+
+            // Return frequency index
+            return f + 1;
         }
     }
-    else if (sysType == 1) {
+    else {
         // F/NAV mode
 
-        if (codeStr.str[1] == '1') {
-            // E1 signal (1575.42 MHz) → index 1
-            if (codeStr.str[2] == 'B' && 1 <= NFREQ) return 1;  // E1(B)
-            if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // E1(C)
-            if (codeStr.str[2] == 'X' && 1 <= NFREQ) return 1;  // E1(B+C)
-        }
-        else if (codeStr.str[1] == '5') {
-            // E5A signal (1176.45 MHz) → index 2
-            if (codeStr.str[2] == 'I' && 2 <= NFREQ) return 2;  // E5A(I)
-            if (codeStr.str[2] == 'Q' && 2 <= NFREQ) return 2;  // E5A(Q)
-            if (codeStr.str[2] == 'X' && 2 <= NFREQ) return 2;  // E5A(I+Q)
-        }
-        else if (codeStr.str[1] == '7') {
-            // E5B signal (1207.14 MHz) → index 3
-            if (codeStr.str[2] == 'I' && 3 <= NFREQ) return 3;  // E5B(I)
-            if (codeStr.str[2] == 'Q' && 3 <= NFREQ) return 3;  // E5B(Q)
-            if (codeStr.str[2] == 'X' && 3 <= NFREQ) return 3;  // E5B(I+Q)
-        }
-        else if (codeStr.str[1] == '6') {
-            // E6 signal (1278.75 MHz) → index 4
-            if (codeStr.str[2] == 'B' && 4 <= NFREQ) return 4;  // E6(B)
-            if (codeStr.str[2] == 'C' && 4 <= NFREQ) return 4;  // E6(C)
-            if (codeStr.str[2] == 'X' && 4 <= NFREQ) return 4;  // E6(B+C)
-        }
-        else if (codeStr.str[1] == '8') {
-            // E5AB signal (1191.795 MHz) → index 5
-            if (codeStr.str[2] == 'I' && 5 <= NFREQ) return 5;  // E5AB(I)
-            if (codeStr.str[2] == 'Q' && 5 <= NFREQ) return 5;  // E5AB(Q)
-            if (codeStr.str[2] == 'X' && 5 <= NFREQ) return 5;  // E5AB(I+Q)
+        // Maximum number of frequency index
+        int maxf = sizeof(FMAP_GAL_FNAV) / sizeof(FMAP_GAL_FNAV[0]);
+
+        for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+            // Check band index
+            if (Str2Band(codeStr.str[1]) != FMAP_GAL_FNAV[f].band) continue;
+
+            // Check attribute (one of the attributes must match)
+            if (strchr(FMAP_GAL_FNAV[f].attr, codeStr.str[2]) == NULL) continue;
+
+            // Return frequency index
+            return f + 1;
         }
     }
 
@@ -489,41 +517,21 @@ static int Code2Fidx_BDS(int code)
     // Check if the observation code is valid
     if (codeStr.str[0] != 'L') return 0;
 
-    if (codeStr.str[1] == '2') {
-        // B1 signal (1561.098 MHz) → index 1
-        if (codeStr.str[2] == 'I' && 1 <= NFREQ) return 1;  // B1(I)
-    }
-    else if (codeStr.str[1] == '3') {
-        // B3 signal (1268.52 MHz) → index 2
-        if (codeStr.str[2] == 'I' && 2 <= NFREQ) return 2;  // B3(I)
-    }
-    else if (codeStr.str[1] == '7') {
-        // B2 signal (1207.14 MHz) → index 3
-        if (codeStr.str[2] == 'I' && 3 <= NFREQ) return 3;  // B2(I)
+    // Maximum number of frequency index
+    int maxf = sizeof(FMAP_BDS) / sizeof(FMAP_BDS[0]);
 
-        // B2B signal (1207.14 MHz) → index 5
-        if (codeStr.str[2] == 'D' && 5 <= NFREQ) return 5;  // B2B(D)
-        if (codeStr.str[2] == 'P' && 5 <= NFREQ) return 5;  // B2B(P)
-        if (codeStr.str[2] == 'Z' && 5 <= NFREQ) return 5;  // B2B(D+P)
+    for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+        // Check band index
+        if (Str2Band(codeStr.str[1]) != FMAP_BDS[f].band) continue;
+
+        // Check attribute (one of the attributes must match)
+        if (strchr(FMAP_BDS[f].attr, codeStr.str[2]) == NULL) continue;
+
+        // Return frequency index
+        return f + 1;
     }
-    else if (codeStr.str[1] == '1') {
-        // B1C signal (1575.42 MHz) → index 4
-        if (codeStr.str[2] == 'D' && 4 <= NFREQ) return 4;  // B1C(D)
-        if (codeStr.str[2] == 'P' && 4 <= NFREQ) return 4;  // B1C(P)
-        if (codeStr.str[2] == 'X' && 4 <= NFREQ) return 4;  // B1C(D+P)
-    }
-    else if (codeStr.str[1] == '5') {
-        // B2A signal (1176.45 MHz) → index 6
-        if (codeStr.str[2] == 'D' && 6 <= NFREQ) return 6;  // B2A(D)
-        if (codeStr.str[2] == 'P' && 6 <= NFREQ) return 6;  // B2A(P)
-        if (codeStr.str[2] == 'X' && 6 <= NFREQ) return 6;  // B2A(D+P)
-    }
-    else if (codeStr.str[1] == '6') {
-        // B2AB signal (1191.795 MHz) → index 7
-        if (codeStr.str[2] == 'D' && 7 <= NFREQ) return 7;  // B2AB(D)
-        if (codeStr.str[2] == 'P' && 7 <= NFREQ) return 7;  // B2AB(P)
-        if (codeStr.str[2] == 'X' && 7 <= NFREQ) return 7;  // B2AB(D+P)
-    }
+
     return 0;
 }
 
@@ -551,42 +559,19 @@ static int Code2Fidx_QZS(int code)
     // Check if the observation code is valid
     if (codeStr.str[0] != 'L') return 0;
 
-    if (codeStr.str[1] == '1') {
-        // L1C/A signal (1575.42 MHz) → index 1
-        if (codeStr.str[2] == 'B' && 1 <= NFREQ) return 1;  // L1C/A(B)
-        if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // L1C/A(C)
-    }
-    else if (codeStr.str[1] == '2') {
-        // L2C signal (1227.60 MHz) → index 2
-        if (codeStr.str[2] == 'S' && 2 <= NFREQ) return 2;  // L2C(D)
-        if (codeStr.str[2] == 'L' && 2 <= NFREQ) return 2;  // L2C(P)
-        if (codeStr.str[2] == 'X' && 2 <= NFREQ) return 2;  // L2C(D+P)
-    }
-    else if (codeStr.str[1] == '5') {
-        // L5 signal (1176.45 MHz) → index 3
-        if (codeStr.str[2] == 'I' && 3 <= NFREQ) return 3;  // L5(I)
-        if (codeStr.str[2] == 'Q' && 3 <= NFREQ) return 3;  // L5(Q)
-        if (codeStr.str[2] == 'X' && 3 <= NFREQ) return 3;  // L5(I+Q)
-    }
-    else if (codeStr.str[1] == '6') {
-        // L6 signal (1278.75 MHz) → index 4
-        if (codeStr.str[2] == 'S' && 4 <= NFREQ) return 4;  // L6(D)
-        if (codeStr.str[2] == 'L' && 4 <= NFREQ) return 4;  // L6(P)
-        if (codeStr.str[2] == 'E' && 4 <= NFREQ) return 4;  // L6(E)
-        if (codeStr.str[2] == 'X' && 4 <= NFREQ) return 4;  // L6(D+P)
-        if (codeStr.str[2] == 'Z' && 4 <= NFREQ) return 4;  // L6(D+E)
-    }
-    else if (codeStr.str[1] == '1') {
-        // L1C signal (1575.42 MHz) → index 5
-        if (codeStr.str[2] == 'S' && 5 <= NFREQ) return 5;  // L1C(D)
-        if (codeStr.str[2] == 'L' && 5 <= NFREQ) return 5;  // L1C(P)
-        if (codeStr.str[2] == 'X' && 5 <= NFREQ) return 5;  // L1C(D+P)
-    }
-    else if (codeStr.str[1] == '5') {
-        // L5S signal (1176.45 MHz) → index 6
-        if (codeStr.str[2] == 'D' && 6 <= NFREQ) return 6;  // L5S(I)
-        if (codeStr.str[2] == 'P' && 6 <= NFREQ) return 6;  // L5S(Q)
-        if (codeStr.str[2] == 'Z' && 6 <= NFREQ) return 6;  // L5S(I+Q)
+    // Maximum number of frequency index
+    int maxf = sizeof(FMAP_QZS) / sizeof(FMAP_QZS[0]);
+
+    for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+        // Check band index
+        if (Str2Band(codeStr.str[1]) != FMAP_QZS[f].band) continue;
+
+        // Check attribute (one of the attributes must match)
+        if (strchr(FMAP_QZS[f].attr, codeStr.str[2]) == NULL) continue;
+
+        // Return frequency index
+        return f + 1;
     }
 
     return 0;
@@ -612,17 +597,19 @@ static int Code2Fidx_IRN(int code)
     // Check if the observation code is valid
     if (codeStr.str[0] != 'L') return 0;
 
-    if (codeStr.str[1] == '5') {
-        // L5 signal (1176.45 MHz) → index 1
-        if (codeStr.str[2] == 'B' && 1 <= NFREQ) return 1;  // L5(B)
-        if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // L5(C)
-        if (codeStr.str[2] == 'X' && 1 <= NFREQ) return 1;  // L5(B+C)
-    }
-    else if (codeStr.str[1] == '9') {
-        // S signal (2492.028 MHz) → index 2
-        if (codeStr.str[2] == 'B' && 2 <= NFREQ) return 2;  // S(B)
-        if (codeStr.str[2] == 'C' && 2 <= NFREQ) return 2;  // S(C)
-        if (codeStr.str[2] == 'X' && 2 <= NFREQ) return 2;  // S(B+C)
+    // Maximum number of frequency index
+    int maxf = sizeof(FMAP_IRN) / sizeof(FMAP_IRN[0]);
+
+    for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+        // Check band index
+        if (Str2Band(codeStr.str[1]) != FMAP_IRN[f].band) continue;
+
+        // Check attribute (one of the attributes must match)
+        if (strchr(FMAP_IRN[f].attr, codeStr.str[2]) == NULL) continue;
+
+        // Return frequency index
+        return f + 1;
     }
 
     return 0;
@@ -648,15 +635,19 @@ static int Code2Fidx_SBS(int code)
     // Check if the observation code is valid
     if (codeStr.str[0] != 'L') return 0;
 
-    if (codeStr.str[1] == '1') {
-        // L1C/A signal (1575.42 MHz) → index 1
-        if (codeStr.str[2] == 'C' && 1 <= NFREQ) return 1;  // L1C/A
-    }
-    else if (codeStr.str[1] == '5') {
-        // L5 signal (1176.45 MHz) → index 2
-        if (codeStr.str[2] == 'I' && 2 <= NFREQ) return 2;  // L5(I)
-        if (codeStr.str[2] == 'Q' && 2 <= NFREQ) return 2;  // L5(Q)
-        if (codeStr.str[2] == 'X' && 2 <= NFREQ) return 2;  // L5(I+Q)
+    // Maximum number of frequency index
+    int maxf = sizeof(FMAP_SBS) / sizeof(FMAP_SBS[0]);
+
+    for (int f = 0; f < NFREQ && f < maxf; f++) {
+
+        // Check band index
+        if (Str2Band(codeStr.str[1]) != FMAP_SBS[f].band) continue;
+
+        // Check attribute (one of the attributes must match)
+        if (strchr(FMAP_SBS[f].attr, codeStr.str[2]) == NULL) continue;
+
+        // Return frequency index
+        return f + 1;
     }
 
     return 0;
@@ -780,6 +771,63 @@ double Band2Freq(int sat, int band)
         case STR_SBS: return Band2Freq_SBS(band);
         default: return 0.0;
     }
+}
+
+// Convert frequency index with system index to frequency band index
+int Fidx2Band(int sys, int fidx)
+{
+    // Check if the system index is valid
+    if (sys <= 0 || sys > NSYS) return 0;
+
+    // Check if the frequency index is valid
+    if (fidx <= 0 || fidx > NFREQ) return 0;
+
+    // FMAP pointer and size
+    const fmap_t *fmap = NULL;
+    int maxf = 0;
+
+    switch (Sys2Str(sys)) {
+        case STR_GPS:
+            fmap = FMAP_GPS;
+            maxf = sizeof(FMAP_GPS) / sizeof(FMAP_GPS[0]);
+            break;
+        case STR_GLO:
+            fmap = FMAP_GLO;
+            maxf = sizeof(FMAP_GLO) / sizeof(FMAP_GLO[0]);
+            break;
+        case STR_GAL:
+            if (GetEphType(Sys2Str('E')) == 0) {
+                fmap = FMAP_GAL_INAV;
+                maxf = sizeof(FMAP_GAL_INAV) / sizeof(FMAP_GAL_INAV[0]);
+            } else {
+                fmap = FMAP_GAL_FNAV;
+                maxf = sizeof(FMAP_GAL_FNAV) / sizeof(FMAP_GAL_FNAV[0]);
+            }
+            break;
+        case STR_BDS:
+            fmap = FMAP_BDS;
+            maxf = sizeof(FMAP_BDS) / sizeof(FMAP_BDS[0]);
+            break;
+        case STR_QZS:
+            fmap = FMAP_QZS;
+            maxf = sizeof(FMAP_QZS) / sizeof(FMAP_QZS[0]);
+            break;
+        case STR_IRN:
+            fmap = FMAP_IRN;
+            maxf = sizeof(FMAP_IRN) / sizeof(FMAP_IRN[0]);
+            break;
+        case STR_SBS:
+            fmap = FMAP_SBS;
+            maxf = sizeof(FMAP_SBS) / sizeof(FMAP_SBS[0]);
+            break;
+        default:
+            return 0;
+    }
+
+    // Validate frequency index range
+    if (fidx > maxf) return 0;
+
+    return fmap[fidx-1].band;
 }
 
 // =============================================================================

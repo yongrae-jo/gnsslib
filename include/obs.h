@@ -149,6 +149,18 @@ int Str2Band(char band);
 // -----------------------------------------------------------------------------
 double Band2Freq(int sat, int band);
 
+// -----------------------------------------------------------------------------
+// Convert frequency index with system index to frequency band index
+//
+// args:
+//        int   sys     (I) : system index
+//        int   fidx    (I) : frequency index
+//
+// return:
+//        int   band    (O) : frequency band index (0 if error)
+// -----------------------------------------------------------------------------
+int Fidx2Band(int sys, int fidx);
+
 // =============================================================================
 // End of header
 // =============================================================================

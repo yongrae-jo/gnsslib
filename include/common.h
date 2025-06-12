@@ -38,8 +38,8 @@ typedef struct pcv {                    // Struct of PCV data
     char serial[MAX_STR_LEN];           // Antenna serial number or sat ID
     double ts;                          // Valid time start
     double te;                          // Valid time end
-    double off[NSYS][3][NBAND];         // Phase center offset [m] (sat: xyz, rcv: enu)
-    double var[NSYS][19][NBAND];        // Phase center variation [m] (sat: 0,1,...,18, rcv: 90,85,...,0)
+    double off[NSYS][NBAND][3];         // Phase center offset [m] (sat: xyz, rcv: enu)
+    double var[NSYS][NBAND][19];        // Phase center variation [m] (sat: 0,1,...,18, rcv: 90,85,...,0)
 } pcv_t;
 
 typedef struct pcvs {                  // Struct of PCV data set
@@ -447,22 +447,24 @@ mat_t *Xyz2Rot(const mat_t *xyz);
 //
 // args:
 //        mat_t *xyz (I) : ECEF coordinate (1 x 3) [m]
+//        mat_t *org (I) : ECEF origin coordinate (1 x 3) [m]
 //
 // return:
 //        mat_t *enu (O) : local ENU coordinate (1 x 3) [m] (if error, return NULL)
 // -----------------------------------------------------------------------------
-mat_t *Xyz2Enu(const mat_t *xyz);
+mat_t *Xyz2Enu(const mat_t *xyz, const mat_t *org);
 
 // -----------------------------------------------------------------------------
 // Transform local ENU coordinate to ECEF coordinate
 //
 // args:
 //        mat_t *enu (I) : local ENU coordinate (1 x 3) [m]
+//        mat_t *org (I) : ECEF origin coordinate (1 x 3) [m]
 //
 // return:
 //        mat_t *xyz (O) : ECEF coordinate (1 x 3) [m] (if error, return NULL)
 // -----------------------------------------------------------------------------
-mat_t *Enu2Xyz(const mat_t *enu);
+mat_t *Enu2Xyz(const mat_t *enu, const mat_t *org);
 
 // -----------------------------------------------------------------------------
 // Compute satellite azimuth and elevation angle
@@ -479,16 +481,18 @@ mat_t *Enu2Xyz(const mat_t *enu);
 mat_t *SatAzEl(const mat_t *rs, const mat_t *rr);
 
 // -----------------------------------------------------------------------------
-// Compute geometric distance between satellite and receiver
+// Compute geometric distance and line of sight unit vector between satellite
+// and receiver
 //
 // args:
 //        mat_t *rs   (I) : satellite position (1 x 3) [m]
 //        mat_t *rr   (I) : receiver position (1 x 3) [m]
+//        mat_t  *e   (O) : (optional) line of sight unit vector (1 x 3) (ECEF)
 //
 // return:
-//        double dist (O) : geometric distance [m]
+//        double dist (O) : geometric distance [m] (if error, return 0.0)
 // -----------------------------------------------------------------------------
-double GeoDist(const mat_t *rs, const mat_t *rr);
+double GeoDist(const mat_t *rs, const mat_t *rr, mat_t *e);
 
 // -----------------------------------------------------------------------------
 // Compute DOPs (GDOP, PDOP, HDOP, VDOP, TDOP)

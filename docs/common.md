@@ -9,13 +9,13 @@ GNSS 라이브러리의 핵심 유틸리티 함수들을 제공하는 기반 모
 
 ## ■ 목차
 
-1. [기본 개념](#-기본-개념)
-2. [데이터 타입 구조](#-데이터-타입-구조)
-3. [데이터 타입 목록](#-데이터-타입-목록)
-4. [함수 구조](#-함수-구조)
-5. [함수 목록](#-함수-목록)
-6. [사용 예시](#-사용-예시)
-7. [성능 특성](#-성능-특성)
+1. [기본 개념](#▲-기본-개념)
+2. [데이터 타입 구조](#▲-데이터-타입-구조)
+3. [데이터 타입 목록](#▲-데이터-타입-목록)
+4. [함수 구조](#▲-함수-구조)
+5. [함수 목록](#▲-함수-목록)
+6. [사용 예시](#▲-사용-예시)
+7. [성능 특성](#▲-성능-특성)
 
 ---
 
@@ -35,7 +35,7 @@ $$\text{sat} = \text{BASE}[\text{sys}-1] + (\text{prn} - \text{MIN\_PRN}[\text{s
 **지원 시간 체계**:
 - **UNIX Time**: 1970/1/1 00:00:00 UTC 기준
 - **GPS Time**: 1980/1/6 00:00:00 UTC 기준
-- **Galileo System Time**: 1999/8/22 00:00:00 UTC 기준
+- **Galileo System Time**: 1999/8/22 00:00:00 UTC 기준 (GPS Time과 동일)
 - **BeiDou Time**: 2006/1/1 00:00:00 UTC 기준
 
 ### ◆ 문자열 표현 통일
@@ -43,7 +43,23 @@ $$\text{sat} = \text{BASE}[\text{sys}-1] + (\text{prn} - \text{MIN\_PRN}[\text{s
 
 **표준 형식**:
 - 위성: `"CXX"` (C: 시스템 코드, XX: PRN 번호)
-- 시간: `"YYYY/MM/DD HH:MM:SS.sss"`
+- 시간: `"YYYY/MM/DD HH:MM:SS.sss"` (소수점 자릿수 조절 가능)
+
+### ◆ 고급 GNSS 좌표 변환
+WGS84 타원체 기반의 정밀한 좌표 변환을 지원합니다:
+- **ECEF ↔ 지리좌표**: 고정밀 타원체 변환
+- **ECEF ↔ ENU**: 지역 좌표계 변환
+- **회전행렬 생성**: 좌표변환용 회전행렬
+- **위성 기하 계산**: 방위각/고도각, 기하거리
+- **Sagnac 효과 보정**: 지구 자전에 의한 보정
+
+### ◆ 정밀도 희석 지수 (DOP) 계산
+위성 기하학적 배치가 측위 정확도에 미치는 영향을 정량화:
+- **GDOP**: 기하학적 정밀도 희석 지수 (위치 + 시간)
+- **PDOP**: 위치 정밀도 희석 지수 (3차원 위치)
+- **HDOP**: 수평 정밀도 희석 지수 (2차원 위치)
+- **VDOP**: 수직 정밀도 희석 지수 (고도)
+- **TDOP**: 시간 정밀도 희석 지수 (클록 오차)
 
 ---
 
@@ -52,7 +68,7 @@ $$\text{sat} = \text{BASE}[\text{sys}-1] + (\text{prn} - \text{MIN\_PRN}[\text{s
 ```
 common 모듈 타입 계층
 ├── 위성 관련
-│   ├── satStr_t ──────────── 위성 문자열 구조체
+│   ├── satStr_t ──────────── 위성 문자열 구조체 (CXX 형식)
 │   └── 위성 인덱스 ────────── int 타입 통합 인덱스
 ├── 시간 관련
 │   ├── cal_t ─────────────── 달력 시간 구조체
@@ -65,8 +81,10 @@ common 모듈 타입 계층
 │   └── sta_t ─────────────── 수신기 정보 구조체
 ├── 네비게이션 데이터
 │   └── nav_t ─────────────── 통합 네비게이션 구조체
-└── GLONASS FCN
-    └── FCN[NSAT_GLO] ─────── GLONASS 주파수 채널 번호
+├── GLONASS FCN
+│   └── FCN[NSAT_GLO] ─────── GLONASS 주파수 채널 번호
+└── 글로벌 상수
+    └── CHI2INV[200] ──────── 카이제곱 역분포 테이블
 ```
 
 ---
@@ -255,6 +273,19 @@ common 모듈 함수 계층
 │   └── 기타 시간 함수
 │       ├── TimeGet() ────── 현재 시간 조회
 │       └── Time2Doy() ───── 시간 → 연중 일자
+├── GNSS 좌표 변환
+│   ├── 기본 좌표 변환
+│   │   ├── Xyz2Llh() ─────── ECEF → 지리좌표
+│   │   ├── Llh2Xyz() ─────── 지리좌표 → ECEF
+│   │   └── Xyz2Rot() ─────── 회전행렬 생성
+│   ├── 지역 좌표 변환
+│   │   ├── Xyz2Enu() ─────── ECEF → ENU
+│   │   └── Enu2Xyz() ─────── ENU → ECEF
+│   └── 위성 기하
+│       ├── SatAzEl() ─────── 위성 방위각/고도각
+│       └── GeoDist() ─────── 기하거리 + Sagnac 보정
+└── GNSS 분석 함수
+    └── Dops() ────────────── DOP 값 계산
 └── 인라인 유틸리티 함수
     ├── SQR() ───────────── 제곱 계산
     ├── Sys2Str() ───────── 시스템 인덱스 → 문자
@@ -509,6 +540,14 @@ common 모듈 함수 계층
 **출력**:
 - `double`: UNIX Timestamp (초)
 
+**GNSS 수식**:
+GPS Time → UNIX Time 변환:
+$$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
+
+여기서:
+- $t_{\text{GPS0}}$: GPS 기준시간 (1980/1/6 00:00:00 UTC)의 UNIX Time
+- $604800 = 7 \times 24 \times 3600$ (1주일의 초 수)
+
 **함수 로직**:
 1. GPS 시간 기준점 (1980/1/6) 계산
 2. 주차에서 일수 계산 (week × 7)
@@ -608,6 +647,22 @@ common 모듈 함수 계층
 
 **출력**:
 - `double`: UTC Time (UNIX Timestamp)
+
+**GNSS 수식**:
+GPS Time → UTC 변환 (윤초 보정):
+$$t_{\text{UTC}} = t_{\text{GPST}} + \Delta t_{\text{LS}}$$
+
+여기서:
+- $\Delta t_{\text{LS}}$: 윤초 보정값 (UTC - GPST)
+- 윤초는 시간에 따라 계단 함수 형태로 변화
+
+윤초 테이블에서 해당 시점의 보정값을 찾아 적용:
+$$\Delta t_{\text{LS}} = \begin{cases}
+-18.0 & \text{if } t \geq 2017/1/1 \\
+-17.0 & \text{if } 2015/7/1 \leq t < 2017/1/1 \\
+\vdots & \vdots \\
+0.0 & \text{if } t < 1981/7/1
+\end{cases}$$
 
 **함수 로직**:
 1. 입력 GPS Time에 해당하는 윤초 조회
@@ -724,6 +779,250 @@ common 모듈 함수 계층
 1. 달력 유효성 검사
 2. snprintf를 사용하여 지정된 포맷으로 문자열 생성
 3. 소수점 자릿수에 따른 초 포맷팅
+
+</details>
+
+#### ◆ GNSS 좌표 변환 함수
+
+##### ● Xyz2Llh() - ECEF → 지리좌표 변환
+<details>
+<summary>상세 설명</summary>
+
+**목적**: WGS84 타원체 기반 ECEF 좌표를 지리좌표로 변환
+
+**입력**:
+- `const mat_t *xyz`: ECEF 좌표 (1×3) [m]
+
+**출력**:
+- `mat_t *llh`: 지리좌표 (1×3) [rad, rad, m] (오류 시 NULL)
+
+**GNSS 수식**:
+WGS84 타원체 좌표 변환 (개선된 반복 알고리즘):
+
+초기값:
+$$p = \|\boldsymbol{r}\| = \sqrt{x^2 + y^2 + z^2}$$
+$$L_0 = \frac{z}{1 - e^2}$$
+
+반복 계산 ($|L - L_0| \geq 10^{-4}$까지):
+$$\sin\phi = \frac{L_0}{\sqrt{p^2 + L_0^2}}$$
+$$N = \frac{a}{\sqrt{1 - e^2\sin^2\phi}}$$
+$$L = z + e^2 \cdot N \cdot \sin\phi$$
+
+최종 결과:
+$$\phi = \arctan2(L, p)$$
+$$\lambda = \arctan2(y, x)$$
+$$h = \sqrt{L^2 + p^2} - N$$
+
+여기서:
+- $e^2 = \text{WGS84\_E2} = FE\_WGS84 \cdot (2 - FE\_WGS84)$
+- $a = \text{RE\_WGS84}$ (WGS84 장반축)
+- 특수 경우: $p \leq 10^{-12}$일 때 $\phi = \pm\pi/2$, $\lambda = 0$
+
+**함수 로직**:
+- WGS84 타원체 매개변수 사용
+- 반복 계산을 통한 고정밀 변환
+- 위도, 경도, 타원체고 반환
+
+</details>
+
+##### ● Llh2Xyz() - 지리좌표 → ECEF 변환
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 지리좌표를 WGS84 ECEF 좌표로 변환
+
+**입력**:
+- `const mat_t *llh`: 지리좌표 (1×3) [rad, rad, m]
+
+**출력**:
+- `mat_t *xyz`: ECEF 좌표 (1×3) [m] (오류 시 NULL)
+
+**GNSS 수식**:
+WGS84 지리좌표 → ECEF 변환:
+$$x = (N + h) \cos\phi \cos\lambda$$
+$$y = (N + h) \cos\phi \sin\lambda$$
+$$z = (N(1-e^2) + h) \sin\phi$$
+
+여기서:
+- $N = \frac{a}{\sqrt{1-e^2\sin^2\phi}}$ (자오선 곡률반지름)
+- $\phi$: 위도 [rad]
+- $\lambda$: 경도 [rad]
+- $h$: 타원체고 [m]
+
+**함수 로직**:
+- WGS84 타원체 매개변수 적용
+- 곡률반지름 계산
+- 직교 좌표 변환 공식 적용
+
+</details>
+
+##### ● Xyz2Rot() - 회전행렬 생성
+<details>
+<summary>상세 설명</summary>
+
+**목적**: ECEF 좌표에서 ENU 지역좌표로 변환하는 회전행렬 생성
+
+**입력**:
+- `const mat_t *xyz`: ECEF 좌표 (1×3) [m]
+
+**출력**:
+- `mat_t *rot`: 회전행렬 (3×3) (오류 시 NULL)
+
+**함수 로직**:
+- 먼저 LLH 좌표로 변환
+- 위도/경도 기반 회전행렬 계산
+- East, North, Up 방향 벡터 생성
+
+</details>
+
+##### ● Xyz2Enu() - ECEF → ENU 변환
+<details>
+<summary>상세 설명</summary>
+
+**목적**: ECEF 좌표를 지역 ENU 좌표로 변환
+
+**입력**:
+- `const mat_t *xyz`: ECEF 좌표 (1×3) [m]
+- `const mat_t *org`: 원점 ECEF 좌표 (1×3) [m]
+
+**출력**:
+- `mat_t *enu`: ENU 지역좌표 (1×3) [m] (오류 시 NULL)
+
+**함수 로직**:
+- 원점 기준 ECEF 벡터 계산
+- 회전행렬을 통한 ENU 변환
+- East, North, Up 성분 반환
+
+</details>
+
+##### ● Enu2Xyz() - ENU → ECEF 변환
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 지역 ENU 좌표를 ECEF 좌표로 변환
+
+**입력**:
+- `const mat_t *enu`: ENU 지역좌표 (1×3) [m]
+- `const mat_t *org`: 원점 ECEF 좌표 (1×3) [m]
+
+**출력**:
+- `mat_t *xyz`: ECEF 좌표 (1×3) [m] (오류 시 NULL)
+
+**함수 로직**:
+- 회전행렬의 전치행렬 사용
+- ENU → ECEF 역변환 수행
+- 원점 좌표 더하여 최종 ECEF 계산
+
+</details>
+
+##### ● SatAzEl() - 위성 방위각/고도각 계산
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 수신기에서 본 위성의 방위각과 고도각 계산
+
+**입력**:
+- `const mat_t *rs`: 위성 위치 (1×3) [m]
+- `const mat_t *rr`: 수신기 위치 (1×3) [m]
+
+**출력**:
+- `mat_t *azel`: 방위각/고도각 (1×2) [rad, rad] (오류 시 NULL)
+
+**GNSS 수식**:
+ENU 지역좌표에서 방위각/고도각 계산:
+$$\text{방위각: } az = \arctan2(E, N)$$
+$$\text{고도각: } el = \arctan2(U, \sqrt{E^2 + N^2})$$
+
+여기서 ENU 좌표는:
+$$\begin{bmatrix} E \\ N \\ U \end{bmatrix} = \mathbf{R} \begin{bmatrix} x^s - x_r \\ y^s - y_r \\ z^s - z_r \end{bmatrix}$$
+
+회전행렬 $\mathbf{R}$:
+$$\mathbf{R} = \begin{bmatrix}
+-\sin\lambda & \cos\lambda & 0 \\
+-\sin\phi\cos\lambda & -\sin\phi\sin\lambda & \cos\phi \\
+\cos\phi\cos\lambda & \cos\phi\sin\lambda & \sin\phi
+\end{bmatrix}$$
+
+**함수 로직**:
+- 수신기 위치가 원점인 경우: 방위각 0, 고도각 π/2 반환
+- ENU 좌표로 변환 후 구면좌표 계산
+- 방위각: `atan2(E, N)` → 0~2π 범위 정규화
+- 고도각: `atan2(U, sqrt(E²+N²))` → -π/2~π/2 범위
+
+</details>
+
+##### ● GeoDist() - 기하거리 + Sagnac 보정
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 위성-수신기 간 기하거리 및 Sagnac 효과 보정 계산
+
+**입력**:
+- `const mat_t *rs`: 위성 위치 (1×3) [m]
+- `const mat_t *rr`: 수신기 위치 (1×3) [m]
+- `mat_t *e`: (선택적) 시선벡터 (1×3) (ECEF)
+
+**출력**:
+- `double`: 보정된 거리 [m] (오류 시 0.0)
+
+**GNSS 수식**:
+Sagnac 효과 보정이 적용된 기하거리:
+$$\rho = \sqrt{(x^s - x_r)^2 + (y^s - y_r)^2 + (z^s - z_r)^2} + \frac{\omega_e}{c}(x^s y_r - x_r y^s)$$
+
+여기서:
+- $\boldsymbol{r}^s = [x^s, y^s, z^s]^T$: 위성 위치벡터 [m]
+- $\boldsymbol{r}_r = [x_r, y_r, z_r]^T$: 수신기 위치벡터 [m]
+- $\omega_e = 7.2921151467 \times 10^{-5}$ rad/s (지구 자전각속도)
+- $c = 299792458.0$ m/s (광속)
+
+시선벡터 (단위벡터):
+$$\boldsymbol{e} = \frac{\boldsymbol{r}^s - \boldsymbol{r}_r}{|\boldsymbol{r}^s - \boldsymbol{r}_r|}$$
+
+**함수 로직**:
+- 유클리드 거리 계산
+- Sagnac 효과 보정 적용
+- 선택적 단위벡터 계산
+
+</details>
+
+#### ◆ GNSS 분석 함수
+
+##### ● Dops() - DOP 값 계산
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 위성 기하를 기반으로 DOP(Dilution of Precision) 값들 계산
+
+**입력**:
+- `const mat_t *azels`: 방위각/고도각 배열 (n×2) [rad, rad]
+- `double elmask`: 고도각 마스크 [rad]
+
+**출력**:
+- `mat_t *dops`: DOP 값들 (1×5) [GDOP, PDOP, HDOP, VDOP, TDOP] (오류 시 NULL)
+
+**GNSS 수식**:
+설계행렬 $\mathbf{H}$를 다음과 같이 구성:
+$$\mathbf{H} = \begin{bmatrix}
+\sin(az_1)\cos(el_1) & \cos(az_1)\cos(el_1) & \sin(el_1) & 1 \\
+\sin(az_2)\cos(el_2) & \cos(az_2)\cos(el_2) & \sin(el_2) & 1 \\
+\vdots & \vdots & \vdots & \vdots \\
+\sin(az_n)\cos(el_n) & \cos(az_n)\cos(el_n) & \sin(el_n) & 1
+\end{bmatrix}$$
+
+공분산 행렬: $\mathbf{Q} = (\mathbf{H}^T\mathbf{H})^{-1}$
+
+DOP 값들:
+- $\text{GDOP} = \sqrt{q_{11} + q_{22} + q_{33} + q_{44}}$ (기하학적)
+- $\text{PDOP} = \sqrt{q_{11} + q_{22} + q_{33}}$ (위치)
+- $\text{HDOP} = \sqrt{q_{11} + q_{22}}$ (수평)
+- $\text{VDOP} = \sqrt{q_{33}}$ (수직)
+- $\text{TDOP} = \sqrt{q_{44}}$ (시간)
+
+**함수 로직**:
+- 고도각 마스크 적용하여 가시 위성 선별 (el > elmask)
+- 설계행렬 H 구성 및 논리 인덱싱으로 마스크된 위성 제거
+- Lsq 함수로 공분산 행렬 Q 계산
+- Q의 대각선 원소들로 DOP 값들 직접 계산
 
 </details>
 
@@ -890,6 +1189,97 @@ double gps_from_bdt = Bdt2Gpst(bdt_time);
 
 printf("BeiDou Time: %.3f\n", bdt_time);
 printf("차이: %.1f초\n", gps_time - bdt_time);
+```
+
+### ◆ GNSS 좌표 변환
+```c
+// ECEF → 지리좌표 변환
+mat_t *xyz = Mat(1, 3, DOUBLE);
+MatSetD(xyz, 0, 0, -2694685.473);  // X [m]
+MatSetD(xyz, 0, 1, -4293642.366);  // Y [m]
+MatSetD(xyz, 0, 2,  3857878.924);  // Z [m]
+
+mat_t *llh = Xyz2Llh(xyz);
+if (llh) {
+    double lat_deg = MatGetD(llh, 0, 0) * R2D;
+    double lon_deg = MatGetD(llh, 0, 1) * R2D;
+    double hgt_m   = MatGetD(llh, 0, 2);
+
+    printf("위도: %.6f°, 경도: %.6f°, 높이: %.3fm\n",
+           lat_deg, lon_deg, hgt_m);
+}
+
+// 지리좌표 → ECEF 역변환
+mat_t *xyz_back = Llh2Xyz(llh);
+
+FreeMat(xyz); FreeMat(llh); FreeMat(xyz_back);
+```
+
+### ◆ ENU 지역좌표 변환
+```c
+// 수신기 위치 (원점)
+mat_t *origin = Mat(1, 3, DOUBLE);
+MatSetD(origin, 0, 0, -2694685.473);
+MatSetD(origin, 0, 1, -4293642.366);
+MatSetD(origin, 0, 2,  3857878.924);
+
+// 위성 위치
+mat_t *sat_pos = Mat(1, 3, DOUBLE);
+MatSetD(sat_pos, 0, 0, 12611434.0);
+MatSetD(sat_pos, 0, 1, -13413103.0);
+MatSetD(sat_pos, 0, 2, 19062913.0);
+
+// ECEF → ENU 변환
+mat_t *enu = Xyz2Enu(sat_pos, origin);
+if (enu) {
+    printf("ENU: E=%.1f, N=%.1f, U=%.1f [m]\n",
+           MatGetD(enu, 0, 0), MatGetD(enu, 0, 1), MatGetD(enu, 0, 2));
+}
+
+FreeMat(origin); FreeMat(sat_pos); FreeMat(enu);
+```
+
+### ◆ 위성 방위각/고도각 계산
+```c
+// 위성-수신기 방위각/고도각 계산
+mat_t *azel = SatAzEl(sat_pos, origin);
+if (azel) {
+    double az_deg = MatGetD(azel, 0, 0) * R2D;
+    double el_deg = MatGetD(azel, 0, 1) * R2D;
+
+    printf("방위각: %.1f°, 고도각: %.1f°\n", az_deg, el_deg);
+}
+
+// 기하거리 + Sagnac 보정
+mat_t *los_vector = Mat(1, 3, DOUBLE);
+double range = GeoDist(sat_pos, origin, los_vector);
+printf("보정된 거리: %.3f km\n", range / 1000.0);
+
+FreeMat(azel); FreeMat(los_vector);
+```
+
+### ◆ DOP 값 계산
+```c
+// 다수 위성의 방위각/고도각 (예: 8개 위성)
+mat_t *azels = Mat(8, 2, DOUBLE);
+// ... 방위각/고도각 값 설정 ...
+
+// DOP 계산 (고도각 마스크 15도)
+double elmask = 15.0 * D2R;
+mat_t *dops = Dops(azels, elmask);
+if (dops) {
+    // DOP 값들이 직접 계산되어 반환됨
+    double gdop = MatGetD(dops, 0, 0);  // GDOP
+    double pdop = MatGetD(dops, 0, 1);  // PDOP
+    double hdop = MatGetD(dops, 0, 2);  // HDOP
+    double vdop = MatGetD(dops, 0, 3);  // VDOP
+    double tdop = MatGetD(dops, 0, 4);  // TDOP
+
+    printf("GDOP: %.2f, PDOP: %.2f, HDOP: %.2f, VDOP: %.2f, TDOP: %.2f\n",
+           gdop, pdop, hdop, vdop, tdop);
+}
+
+FreeMat(azels); FreeMat(dops);
 ```
 
 ---

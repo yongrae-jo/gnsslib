@@ -58,14 +58,14 @@ void SetDefaultOpt(opt_t *opt) {
     // Set default excluded satellites for BeiDou GEO (C01-C05, C59-C62)
     int sat;
     if (Str2Sys('C') > 0) {
-        if (sat = Str2Sat((satStr_t){.str = "C01"})) opt->exsats[sat] = 1; // BDS 2 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C02"})) opt->exsats[sat] = 1; // BDS 2 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C03"})) opt->exsats[sat] = 1; // BDS 2 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C04"})) opt->exsats[sat] = 1; // BDS 2 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C05"})) opt->exsats[sat] = 1; // BDS 2 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C59"})) opt->exsats[sat] = 1; // BDS 3 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C60"})) opt->exsats[sat] = 1; // BDS 3 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C61"})) opt->exsats[sat] = 1; // BDS 3 GEO
-        if (sat = Str2Sat((satStr_t){.str = "C62"})) opt->exsats[sat] = 1; // BDS 3 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C01"})) > 0) opt->exsats[sat] = 1; // BDS 2 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C02"})) > 0) opt->exsats[sat] = 1; // BDS 2 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C03"})) > 0) opt->exsats[sat] = 1; // BDS 2 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C04"})) > 0) opt->exsats[sat] = 1; // BDS 2 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C05"})) > 0) opt->exsats[sat] = 1; // BDS 2 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C59"})) > 0) opt->exsats[sat] = 1; // BDS 3 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C60"})) > 0) opt->exsats[sat] = 1; // BDS 3 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C61"})) > 0) opt->exsats[sat] = 1; // BDS 3 GEO
+        if ((sat = Str2Sat((satStr_t){.str = "C62"})) > 0) opt->exsats[sat] = 1; // BDS 3 GEO
     }
 }

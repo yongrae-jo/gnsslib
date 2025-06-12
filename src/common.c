@@ -63,7 +63,35 @@ typedef struct {
 // =============================================================================
 
 // GLONASS frequency channel number (FCN + 8 : must be larger than 0) (-7 <= FCN <= +6)
-static int FCN[NSAT_GLO] = {0};
+static int FCN[NSAT_GLO] = {
+    +1, // PRN 1, FCN +1
+    -4, // PRN 2, FCN -4
+    +5, // PRN 3, FCN +5
+    +6, // PRN 4, FCN +6
+    +1, // PRN 5, FCN +1
+    -4, // PRN 6, FCN -4
+    +5, // PRN 7, FCN +5
+    +6, // PRN 8, FCN +6
+    -2, // PRN 9, FCN -2
+    -7, // PRN 10, FCN -7
+    +0, // PRN 11, FCN +0
+    -1, // PRN 12, FCN -1
+    -2, // PRN 13, FCN -2
+    -7, // PRN 14, FCN -7
+    +0, // PRN 15, FCN +0
+    -1, // PRN 16, FCN -1
+    +4, // PRN 17, FCN +4
+    -3, // PRN 18, FCN -3
+    +3, // PRN 19, FCN +3
+    +2, // PRN 20, FCN +2
+    +4, // PRN 21, FCN +4
+    -3, // PRN 22, FCN -3
+    +3, // PRN 23, FCN +3
+    +2, // PRN 24, FCN +2
+};
+
+// WGS84 constants (avoid repeated calculation)
+static const double WGS84_E2 = FE_WGS84 * (2.0 - FE_WGS84);  // First eccentricity squared
 
 // Day of year at each month
 static const int DOY[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
@@ -658,9 +686,20 @@ calStr_t Cal2Str(cal_t cal, int dec)
     if (cal.min < 0     || cal.min > 59   ) return calStr;
     if (cal.sec < 0.0   || cal.sec >= 60.0) return calStr;
 
-    // Format the calendar string
-    snprintf(calStr.str, CAL_STR_SIZE, "%04d/%02d/%02d %02d:%02d:%02d.%03d",
-             cal.year, cal.mon, cal.day, cal.hour, cal.min, (int)cal.sec, (int)((cal.sec - (int)cal.sec) * 1000));
+    // Limit decimal places to valid range (0-3)
+    if (dec < 0) dec = 0;
+    if (dec > 3) dec = 3;
+
+    // Format the calendar string with specified decimal places
+    if (dec == 0) {
+        snprintf(calStr.str, CAL_STR_SIZE, "%04d/%02d/%02d %02d:%02d:%02d",
+                 cal.year, cal.mon, cal.day, cal.hour, cal.min, (int)cal.sec);
+    } else {
+        int isec = (int)cal.sec;
+        int frac = (int)((cal.sec - isec) * pow(10, dec));
+        snprintf(calStr.str, CAL_STR_SIZE, "%04d/%02d/%02d %02d:%02d:%02d.%0*d",
+                 cal.year, cal.mon, cal.day, cal.hour, cal.min, isec, dec, frac);
+    }
 
     return calStr;
 }
@@ -673,15 +712,471 @@ calStr_t Cal2Str(cal_t cal, int dec)
 mat_t *Xyz2Llh(const mat_t *xyz)
 {
     // Check if the input matrix is valid
-    if (xyz->rows != 3 || xyz->cols != 1) return NULL;
+    if (xyz->rows != 1 || xyz->cols != 3) return NULL;
 
-    // Convert ECEF coordinate to geodetic coordinate (WGS84)
+    double p = Norm(xyz);
+    double z = MatGetD(xyz, 0, 2);
+    double r = RE_WGS84;
 
+    // Initialize latitude
+    double L = z / (1 - WGS84_E2);
 
+    for (double L0 = L; fabs(L - L0) >= 1E-4; L0 = L) {
 
+        // Latitude
+        double sinphi = L0 / sqrt(SQR(p) + SQR(L0));
 
+        // Rho
+        r = RE_WGS84 / sqrt(1.0 - WGS84_E2 * sinphi * sinphi);
+
+        // Re compute zk
+        L = z + WGS84_E2 * r * sinphi;
+    }
+
+    // Initialize geodetic coordinate
+    mat_t *llh = Mat(1, 3, DOUBLE);
+    if (!llh) return NULL;
+
+    MatSetD(llh, 0, 0, atan2(L, p));
+    MatSetD(llh, 0, 1, atan2(MatGetD(xyz, 0, 1), MatGetD(xyz, 0, 0)));
+    MatSetD(llh, 0, 2, sqrt(SQR(L) + SQR(p)) - r);
+
+    if (p <= 1E-12 && MatGetD(xyz, 0, 2) >  0.0) MatSetD(llh, 0, 0,  PI/2);
+    if (p <= 1E-12 && MatGetD(xyz, 0, 2) <= 0.0) MatSetD(llh, 0, 0, -PI/2);
+    if (p <= 1E-12) MatSetD(llh, 0, 1, 0.0);
+
+    return llh;
 }
 
+// Transform geodetic coordinate to ECEF coordinate
+mat_t *Llh2Xyz(const mat_t *llh)
+{
+    // Check if the input matrix is valid
+    if (llh->rows != 1 || llh->cols != 3) return NULL;
+
+    double sinlat = sin(MatGetD(llh, 0, 0));
+    double coslat = cos(MatGetD(llh, 0, 0));
+    double sinlon = sin(MatGetD(llh, 0, 1));
+    double coslon = cos(MatGetD(llh, 0, 1));
+
+    double v = RE_WGS84 / sqrt(1.0 - WGS84_E2 * sinlat * sinlat);
+
+    // Initialize ECEF coordinate
+    mat_t *xyz = Mat(1, 3, DOUBLE);
+    if (!xyz) return NULL;
+
+    MatSetD(xyz, 0, 0, (v + MatGetD(llh, 0, 2)) * coslat * coslon);
+    MatSetD(xyz, 0, 1, (v + MatGetD(llh, 0, 2)) * coslat * sinlon);
+    MatSetD(xyz, 0, 2, (v * (1.0 - WGS84_E2) + MatGetD(llh, 0, 2)) * sinlat);
+
+    return xyz;
+}
+
+// Compute rotation matrix to convert ECEF coordinate to local ENU coordinate
+mat_t *Xyz2Rot(const mat_t *xyz)
+{
+    // Check if the input matrix is valid
+    if (xyz->rows != 1 || xyz->cols != 3) return NULL;
+
+    mat_t *llh = Xyz2Llh(xyz);
+    if (!llh) return NULL;
+
+    double sinlat = sin(MatGetD(llh, 0, 0));
+    double coslat = cos(MatGetD(llh, 0, 0));
+    double sinlon = sin(MatGetD(llh, 0, 1));
+    double coslon = cos(MatGetD(llh, 0, 1));
+
+    // Initialize rotation matrix
+    mat_t *rot = Mat(3, 3, DOUBLE);
+    if (!rot) return NULL;
+
+    MatSetD(rot, 0, 0, -sinlon);
+    MatSetD(rot, 0, 1, coslon);
+    MatSetD(rot, 0, 2, 0.0);
+
+    MatSetD(rot, 1, 0, -sinlat * coslon);
+    MatSetD(rot, 1, 1, -sinlat * sinlon);
+    MatSetD(rot, 1, 2, coslat);
+
+    MatSetD(rot, 2, 0, coslat * coslon);
+    MatSetD(rot, 2, 1, coslat * sinlon);
+    MatSetD(rot, 2, 2, sinlat);
+
+    return rot;
+}
+
+// Transform ECEF coordinate to local ENU coordinate
+mat_t *Xyz2Enu(const mat_t *xyz, const mat_t *org)
+{
+    // Check if the input matrices are valid
+    if (xyz->rows != 1 || xyz->cols != 3) return NULL;
+    if (org->rows != 1 || org->cols != 3) return NULL;
+
+    // Flag and matrices
+    int info = 1;
+    mat_t *dxyz = NULL;
+    mat_t *rot  = NULL;
+    mat_t *enu  = NULL;
+
+    // Difference between ECEF coordinate and origin position
+    dxyz = MatAdd(1.0, xyz, false, -1.0, org, false);
+    if (!dxyz) info = 0;
+
+    // Compute rotation matrix
+    if (info) {
+        rot = Xyz2Rot(org);
+        if (!rot) info = 0;
+    }
+
+    // Rotate ECEF coordinate to local ENU coordinate (enu^T = dxyz^T * rot^T)
+    if (info) {
+        enu = MatMul(1.0, dxyz, false, 1, rot, true);
+    }
+
+    // Free memory
+    FreeMat(dxyz);
+    FreeMat(rot);
+
+    return enu;
+}
+
+// Transform local ENU coordinate to ECEF coordinate
+mat_t *Enu2Xyz(const mat_t *enu, const mat_t *org)
+{
+    // Check if the input matrices are valid
+    if (enu->rows != 1 || enu->cols != 3) return NULL;
+    if (org->rows != 1 || org->cols != 3) return NULL;
+
+    // Flag and matrices
+    int info = 1;
+    mat_t *dxyz = NULL;
+    mat_t *rot  = NULL;
+    mat_t *xyz  = NULL;
+
+    // Compute rotation matrix
+    rot = Xyz2Rot(org);
+    if (!rot) info = 0;
+
+    // Rotate local ENU coordinate to ECEF coordinate (dxyz^T = enu^T * rot)
+    if (info) {
+        dxyz = MatMul(1.0, enu, false, 1.0, rot, false);
+        if (!dxyz) info = 0;
+    }
+
+    // Add origin position
+    if (info) {
+        xyz = MatAdd(1.0, dxyz, false, 1.0, org, false);
+    }
+
+    // Free memory
+    FreeMat(dxyz);
+    FreeMat(rot);
+
+    return xyz;
+}
+
+// Compute satellite azimuth and elevation angle
+mat_t *SatAzEl(const mat_t *rs, const mat_t *rr)
+{
+    // Check if the input matrices are valid
+    if (rs->rows != 1 || rs->cols != 3) return NULL;
+    if (rr->rows != 1 || rr->cols != 3) return NULL;
+    if (Norm(rs) == 0.0) return NULL;
+
+    // Flag and matrices
+    int info = 1;
+    mat_t *enu = NULL;
+    mat_t *azel = NULL;
+
+    // Initialize azimuth and elevation angle
+    azel = Mat(1, 2, DOUBLE);
+    if (!azel) info = 0;
+
+    // Check receiver position (special case: origin)
+    if (info && Norm(rr) == 0.0) {
+        MatSetD(azel, 0, 0, 0.0);    // Azimuth: 0 rad
+        MatSetD(azel, 0, 1, PI/2);   // Elevation: 90 degrees
+    }
+    // Normal case: compute from ENU coordinates
+    else if (info) {
+        enu = Xyz2Enu(rs, rr);
+        if (!enu) info = 0;
+
+        if (info) {
+            double e = MatGetD(enu, 0, 0);  // East
+            double n = MatGetD(enu, 0, 1);  // North
+            double u = MatGetD(enu, 0, 2);  // Up
+
+            // Azimuth and elevation angle [rad]
+            double az = atan2(e, n);
+            double el = atan2(u, sqrt(SQR(e) + SQR(n)));
+
+            // Normalize azimuth to [0, 2π)
+            if (az < 0.0) az += 2.0 * PI;
+
+            MatSetD(azel, 0, 0, az);
+            MatSetD(azel, 0, 1, el);
+        }
+    }
+
+    // Clean up
+    FreeMat(enu);
+
+    // Return result or NULL on error
+    if (!info) {
+        FreeMat(azel);
+        return NULL;
+    }
+
+    return azel;
+}
+
+// Compute geometric distance between satellite and receiver
+double GeoDist(const mat_t *rs, const mat_t *rr, mat_t *e)
+{
+    // Check if the input matrices are valid
+    if (rs->rows != 1 || rs->cols != 3) return 0.0;
+    if (rr->rows != 1 || rr->cols != 3) return 0.0;
+    if (e && (e->rows != 1 || e->cols != 3)) return 0.0;
+
+    // Line of sight vector (rs - rr)
+    mat_t *los = MatAdd(1.0, rs, false, -1.0, rr, false);
+    if (!los) return 0.0;
+
+    // Euclidean distance
+    double r = Norm(los);
+    if (r == 0.0) {
+        FreeMat(los);
+        return 0.0;
+    }
+
+    // Compute line of sight unit vector if requested
+    if (e) {
+        MatSetD(e, 0, 0, MatGetD(los, 0, 0) / r);
+        MatSetD(e, 0, 1, MatGetD(los, 0, 1) / r);
+        MatSetD(e, 0, 2, MatGetD(los, 0, 2) / r);
+    }
+
+    // Free memory
+    FreeMat(los);
+
+    // Geometric distance corrected for Sagnac effect
+    return r + OMGE_GPS * (MatGetD(rs, 0, 0) * MatGetD(rr, 0, 1) - MatGetD(rs, 0, 1) * MatGetD(rr, 0, 0)) / C_LIGHT;
+}
+
+// Compute DOPs (GDOP, PDOP, HDOP, VDOP, TDOP)
+mat_t *Dops(const mat_t *azels, double elmask)
+{
+    // Check if the input matrix is valid (at least 4 satellites)
+    if (azels->rows < 4 || azels->cols != 2) return NULL;
+
+    // Check if the elevation mask is valid
+    if (elmask < 0.0 || elmask > PI/2) return NULL;
+
+    // Flag and matrices
+    int info    = 1;
+    mat_t *H    = NULL;
+    idx_t *ridx = NULL;
+    idx_t *cidx = NULL;
+    mat_t *Q    = NULL;
+    mat_t *dops = NULL;
+
+    // Make H matrix
+    H = Mat(azels->rows, 4, DOUBLE);
+    if (!H) info = 0;
+
+    // Make index vector
+    ridx = TrueIdx(azels->rows);
+    cidx = TrueIdx(4);
+    if (!ridx || !cidx) info = 0;
+
+    // Make H matrix
+    if (info) {
+        for (int i = 0; i < azels->rows; i++) {
+            double az = MatGetD(azels, i, 0);
+            double el = MatGetD(azels, i, 1);
+            double cosel = cos(el);
+
+            // Skip if elevation is less than elevation mask
+            if (el <= elmask) {
+                IdxSetB(ridx, i, false);
+                continue;
+            }
+
+            MatSetD(H, i, 0, sin(az) * cosel);
+            MatSetD(H, i, 1, cos(az) * cosel);
+            MatSetD(H, i, 2, sin(el));
+            MatSetD(H, i, 3, 1.0);
+        }
+    }
+
+    // Compute DOPs
+    if (info) {
+
+        // Remove rows with elevation less than elevation mask
+        MatLogIdxIn(H, ridx, cidx);
+
+        // Compute covariance matrix
+        Q = Mat(H->rows, H->rows, DOUBLE);
+        if (!Lsq(H, NULL, NULL, NULL, Q, NULL)) info = 0;
+
+        // Initialize DOPs
+        dops = Mat(1, 5, DOUBLE);
+        if (!dops) info = 0;
+
+        if (info) {
+
+            // Variances
+            double vee = MatGetD(Q, 0, 0);
+            double vnn = MatGetD(Q, 1, 1);
+            double vuu = MatGetD(Q, 2, 2);
+            double vtt = MatGetD(Q, 3, 3);
+
+            // Compute DOPs
+            MatSetD(dops, 0, 0, sqrt(vee + vnn + vuu + vtt));
+            MatSetD(dops, 0, 1, sqrt(vee + vnn + vuu));
+            MatSetD(dops, 0, 2, sqrt(vee + vnn));
+            MatSetD(dops, 0, 3, sqrt(vuu));
+            MatSetD(dops, 0, 4, sqrt(vtt));
+        }
+    }
+
+    // Free memory
+    FreeMat(H);
+    FreeIdx(ridx);
+    FreeIdx(cidx);
+    FreeMat(Q);
+
+    return dops;
+}
+
+// Receiver antenna model
+mat_t *RcvAntModel(int sat, const mat_t *azel, int nf, const pcv_t *pcv)
+{
+    // Check if the input matrices are valid
+    if (azel->rows != 1 || azel->cols != 2) return NULL;
+    if (nf < 1) return NULL;
+
+    // Check antenna parameters
+    if (pcv == NULL) return NULL;
+
+    // Check if the system is valid
+    int sys = Sat2Prn(sat, NULL);
+    if (sys <= 0 || sys > NSYS) return NULL;
+
+    // Flag and matrices
+    int info = 1;
+    double offc = 0.0;
+    double varc = 0.0;
+    mat_t *e    = NULL;
+    mat_t *off  = Mat( 3,  1, DOUBLE);
+    mat_t *var  = Mat(19,  1, DOUBLE);
+    mat_t *x0   = Mat(19,  1, DOUBLE);
+    mat_t *dant = Mat( 1, nf, DOUBLE);
+
+    // Validate memory allocations
+    if (!off || !var || !x0 || !dant) info = 0;
+
+    // Initialize output with zeros
+    if (info) {
+        for (int f = 0; f < nf; f++) {
+            MatSetD(dant, 0, f, 0.0);
+        }
+
+        // Set x0 (zenith angles: 0,5,...,90 deg) for interpolation lookup
+        for (int i = 0; i < 19; i++) {
+            MatSetD(x0, i, 0, 5.0 * i);
+        }
+    }
+
+    // Line of sight unit vector
+    double el = MatGetD(azel, 0, 1);
+    double cosel = cos(el);
+    e = Mat(3, 1, DOUBLE);
+    if (!e) info = 0;
+
+    if (info) {
+        MatSetD(e, 0, 0, sin(MatGetD(azel, 0, 0)) * cosel);
+        MatSetD(e, 1, 0, cos(MatGetD(azel, 0, 0)) * cosel);
+        MatSetD(e, 2, 0, sin(MatGetD(azel, 0, 1)));
+    }
+
+    // Check antenna correction
+    while (info) {
+
+        // Check each frequency band
+        for (int f = 0; f < nf; f++) {
+
+            // Check if the frequency band is valid (fidx is 1-based)
+            int band = Fidx2Band(sys, f + 1);
+            if (band <= 0 || band > NBAND) {
+                info = 0;
+                break;
+            }
+
+            // Initialzie antenna parameters
+            for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, 0.0);
+            for (int i = 0; i < 19; i++) MatSetD(var, i, 0, 0.0);
+
+            // Set antenna phase offset
+            for (int i = 0; i < 3; i++) {
+                MatSetD(off, i, 0, pcv->off[sys-1][band-1][i]);
+            }
+
+            // Check and set antenna parameters
+            int gps = Str2Sys(STR_GPS);
+            int bds = Str2Sys(STR_BDS);
+            int band1 = Str2Band('1');
+            int band2 = Str2Band('2');
+            if (Norm(off) > 0.0) {
+                for (int i = 0; i < 19; i++) {
+                    // Set antenna phase variation
+                    MatSetD(var, i, 0, pcv->var[sys-1][band-1][i]);
+                }
+            }
+            else if (gps && band == band1) {    // Use GPS L1 antenna parameters if band 1 signals
+                for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, pcv->off[gps-1][band1-1][i]);
+                for (int i = 0; i < 19; i++) MatSetD(var, i, 0, pcv->var[gps-1][band1-1][i]);
+            }
+            else if (gps && sys == bds && band == band2) { // Use GPS L1 antenna parameters if BDS B1
+                for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, pcv->off[gps-1][band1-1][i]);
+                for (int i = 0; i < 19; i++) MatSetD(var, i, 0, pcv->var[gps-1][band1-1][i]);
+            }
+            else if (gps) { // Use GPS L2 antenna parameters for other signals
+                for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, pcv->off[gps-1][band2-1][i]);
+                for (int i = 0; i < 19; i++) MatSetD(var, i, 0, pcv->var[gps-1][band2-1][i]);
+            }
+            else {
+                // Skip if antenna parameters are not available
+                // It could affect the errors of phase measurements
+                continue;
+            }
+
+            // Compute antenna phase correction (e^T * off)
+            if (!Dot(e, off, &offc)) continue;
+
+            // Phase center variation (zenith angle)
+            if (!Interp(x0, var, 90.0 - el * R2D, &varc)) continue;
+
+            // Compute antenna phase correction [m]
+            MatSetD(dant, 0, f, -offc + varc);
+        }
+
+        break;
+    }
+
+    // Free memory
+    FreeMat(e);
+    FreeMat(off);
+    FreeMat(var);
+    FreeMat(x0);
+
+    if (!info) {
+        FreeMat(dant);
+        return NULL;
+    }
+    return dant;
+}
 
 // =============================================================================
 // End of file
