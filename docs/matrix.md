@@ -1,3 +1,8 @@
+---
+layout: default
+title: 고성능 행렬 연산 모듈 (matrix)
+---
+
 # ★ 고성능 행렬 연산 모듈 (matrix)
 
 GNSS 정밀 측위를 위한 고성능 수치 연산 엔진입니다.

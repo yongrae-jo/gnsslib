@@ -1,15 +1,5 @@
 # ★ GNSSLIB: 다중 GNSS 신호 처리 라이브러리
 
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
-
 GNSSLIB는 GPS, GLONASS, Galileo, BeiDou, QZSS, IRNSS, SBAS 등 다양한 위성항법시스템(GNSS) 신호를 정밀하게 처리하는 고성능 C 라이브러리입니다. 크로스 플랫폼(Windows, Linux, macOS) 환경에서 동작하며, 실시간 위치 결정, 항법, 위성 데이터 해석을 위한 표준화된 수치 연산 및 데이터 변환 기능을 제공합니다.
 
 ---
