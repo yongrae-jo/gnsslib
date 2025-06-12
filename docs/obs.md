@@ -1,15 +1,5 @@
 # ★ GNSS 관측 데이터 처리 모듈 (obs)
 
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
-
 GNSS 관측 데이터를 종합적으로 처리하는 핵심 모듈로, 관측 코드 변환부터 주파수 정보 추출까지 GNSS 측위에 필요한 모든 관측 데이터 처리 기능을 제공합니다.
 
 ## ■ 목차

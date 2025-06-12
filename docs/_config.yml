@@ -1,0 +1,12 @@
+title: GNSSLIB Documentation
+theme: minimal
+markdown: kramdown
+
+include:
+  - _includes
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      head: _includes/head-custom.html

@@ -1,16 +1,7 @@
 ---
+layout: default
 title: GNSSLIB
 ---
-
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 
 # ★ GNSSLIB: 다중 GNSS 신호처리 라이브러리
 

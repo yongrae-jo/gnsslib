@@ -1,15 +1,5 @@
 # ★ 고성능 행렬 연산 모듈 (matrix)
 
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
-
 GNSS 정밀 측위를 위한 고성능 수치 연산 엔진입니다.
 
 ## ■ 목차

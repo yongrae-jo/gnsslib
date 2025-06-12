@@ -1,15 +1,5 @@
 # ★ GNSS 공통 유틸리티 모듈 (common)
 
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
-
 GNSS 라이브러리의 핵심 유틸리티 함수들을 제공하는 기반 모듈입니다.
 
 ## ■ 목차

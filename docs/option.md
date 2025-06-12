@@ -1,14 +1,9 @@
+---
+layout: default
+title: GNSS 처리 옵션 관리 모듈 (option)
+---
+
 # ■ GNSS 처리 옵션 관리 모듈 (option)
-
-<script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    }
-  };
-</script>
-<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 
 GNSS 측위 처리에 필요한 다양한 옵션과 매개변수를 관리하는 핵심 모듈입니다.
 
