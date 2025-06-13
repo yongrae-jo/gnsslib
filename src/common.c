@@ -1064,10 +1064,17 @@ mat_t *RcvAntModel(int sat, const mat_t *azel, int nf, const pcv_t *pcv)
     int sys = Sat2Prn(sat, NULL);
     if (sys <= 0 || sys > NSYS) return NULL;
 
+    // Initialize variables
+    int gps = Str2Sys(STR_GPS);
+    int bds = Str2Sys(STR_BDS);
+    int band1 = Str2Band('1');
+    int band2 = Str2Band('2');
+
     // Flag and matrices
     int info = 1;
     double offc = 0.0;
     double varc = 0.0;
+
     mat_t *e    = NULL;
     mat_t *off  = Mat( 3,  1, DOUBLE);
     mat_t *var  = Mat(19,  1, DOUBLE);
@@ -1101,33 +1108,28 @@ mat_t *RcvAntModel(int sat, const mat_t *azel, int nf, const pcv_t *pcv)
         MatSetD(e, 2, 0, sin(MatGetD(azel, 0, 1)));
     }
 
-    // Check antenna correction
-    while (info) {
+    // Check each frequency band
+    for (int f = 0; f < nf && info; f++) {
 
-        // Check each frequency band
-        for (int f = 0; f < nf; f++) {
+        // Check if the frequency band is valid (fidx is 1-based)
+        int band = Fidx2Band(sys, f + 1);
 
-            // Check if the frequency band is valid (fidx is 1-based)
-            int band = Fidx2Band(sys, f + 1);
-            if (band <= 0 || band > NBAND) {
-                info = 0;
-                break;
-            }
+        // If the frequency band is invalid, set info to 0 and go to return NULL
+        if (band <= 0 || band > NBAND) {
+            info = 0;
+            continue;
+        }
 
-            // Initialzie antenna parameters
-            for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, 0.0);
-            for (int i = 0; i < 19; i++) MatSetD(var, i, 0, 0.0);
+        // Initialize antenna parameters
+        for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, 0.0);
+        for (int i = 0; i < 19; i++) MatSetD(var, i, 0, 0.0);
 
-            // Set antenna phase offset
-            for (int i = 0; i < 3; i++) {
-                MatSetD(off, i, 0, pcv->off[sys-1][band-1][i]);
-            }
+        // Set antenna phase offset
+        for (int i = 0; i < 3; i++) {
+            MatSetD(off, i, 0, pcv->off[sys-1][band-1][i]);
+        }
 
             // Check and set antenna parameters
-            int gps = Str2Sys(STR_GPS);
-            int bds = Str2Sys(STR_BDS);
-            int band1 = Str2Band('1');
-            int band2 = Str2Band('2');
             if (Norm(off) > 0.0) {
                 for (int i = 0; i < 19; i++) {
                     // Set antenna phase variation
@@ -1160,9 +1162,6 @@ mat_t *RcvAntModel(int sat, const mat_t *azel, int nf, const pcv_t *pcv)
 
             // Compute antenna phase correction [m]
             MatSetD(dant, 0, f, -offc + varc);
-        }
-
-        break;
     }
 
     // Free memory
