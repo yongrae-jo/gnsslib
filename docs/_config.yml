@@ -1,12 +1,7 @@
-title: GNSSLIB Documentation
-theme: jekyll-theme-minimal
 markdown: kramdown
-
-include:
-  - _includes
+theme: null
 defaults:
   - scope:
       path: ""
     values:
       layout: default
-      head: _includes/head-custom.html
