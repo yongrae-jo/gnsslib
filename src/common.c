@@ -1064,117 +1064,354 @@ mat_t *RcvAntModel(int sat, const mat_t *azel, int nf, const pcv_t *pcv)
     int sys = Sat2Prn(sat, NULL);
     if (sys <= 0 || sys > NSYS) return NULL;
 
+    // Check if the bands are valid
+    for (int f = 0; f < nf; f++) {
+        int band = Fidx2Band(sys, f + 1);
+        if (band <= 0 || band > NBAND) return NULL;
+    }
+
     // Initialize variables
     int gps = Str2Sys(STR_GPS);
     int bds = Str2Sys(STR_BDS);
     int band1 = Str2Band('1');
     int band2 = Str2Band('2');
 
-    // Flag and matrices
-    int info = 1;
-    double offc = 0.0;
-    double varc = 0.0;
+    // Flag and output matrix
+    mat_t *dant = Mat(1, nf, DOUBLE);
+    if (!dant) return NULL;
 
-    mat_t *e    = NULL;
-    mat_t *off  = Mat( 3,  1, DOUBLE);
-    mat_t *var  = Mat(19,  1, DOUBLE);
-    mat_t *x0   = Mat(19,  1, DOUBLE);
-    mat_t *dant = Mat( 1, nf, DOUBLE);
-
-    // Validate memory allocations
-    if (!off || !var || !x0 || !dant) info = 0;
-
-    // Initialize output with zeros
-    if (info) {
-        for (int f = 0; f < nf; f++) {
-            MatSetD(dant, 0, f, 0.0);
-        }
-
-        // Set x0 (zenith angles: 0,5,...,90 deg) for interpolation lookup
-        for (int i = 0; i < 19; i++) {
-            MatSetD(x0, i, 0, 5.0 * i);
-        }
-    }
+    // Initialize variables
+    double e[3], x0[19], off[3], var[19], offc, varc;
+    for (int i = 0; i < 19; i++) x0[i] = 5.0 * i;
 
     // Line of sight unit vector
+    double az = MatGetD(azel, 0, 0);
     double el = MatGetD(azel, 0, 1);
     double cosel = cos(el);
-    e = Mat(3, 1, DOUBLE);
-    if (!e) info = 0;
 
-    if (info) {
-        MatSetD(e, 0, 0, sin(MatGetD(azel, 0, 0)) * cosel);
-        MatSetD(e, 1, 0, cos(MatGetD(azel, 0, 0)) * cosel);
-        MatSetD(e, 2, 0, sin(MatGetD(azel, 0, 1)));
-    }
+    e[0] = sin(az) * cosel;
+    e[1] = cos(az) * cosel;
+    e[2] = sin(el);
 
     // Check each frequency band
-    for (int f = 0; f < nf && info; f++) {
+    mat_t eVec   = {3 , 1, DOUBLE, (void *)e  };
+    mat_t x0Vec  = {19, 1, DOUBLE, (void *)x0 };
+    mat_t offVec = {3 , 1, DOUBLE, (void *)off};
+    mat_t varVec = {19, 1, DOUBLE, (void *)var};
+    for (int f = 0; f < nf; f++) {
 
         // Check if the frequency band is valid (fidx is 1-based)
         int band = Fidx2Band(sys, f + 1);
 
-        // If the frequency band is invalid, set info to 0 and go to return NULL
-        if (band <= 0 || band > NBAND) {
-            info = 0;
+        // Set antenna phase offset
+        for (int i = 0; i < 3; i++) {
+            off[i] = pcv->off[sys-1][band-1][i];
+        }
+
+        // Check and set antenna parameters
+        if (Norm(&offVec) > 0.0) {
+            for (int i = 0; i < 19; i++) {
+                // Set antenna phase variation
+                var[i] = pcv->var[sys-1][band-1][i];
+            }
+        }
+        else if (gps && band == band1) {    // Use GPS L1 antenna parameters if band 1 signals
+            for (int i = 0; i < 3 ; i++) off[i] = pcv->off[gps-1][band1-1][i];
+            for (int i = 0; i < 19; i++) var[i] = pcv->var[gps-1][band1-1][i];
+        }
+        else if (gps && sys == bds && band == band2) { // Use GPS L1 antenna parameters if BDS B1
+            for (int i = 0; i < 3 ; i++) off[i] = pcv->off[gps-1][band1-1][i];
+            for (int i = 0; i < 19; i++) var[i] = pcv->var[gps-1][band1-1][i];
+        }
+        else if (gps) { // Use GPS L2 antenna parameters for other signals
+            for (int i = 0; i < 3 ; i++) off[i] = pcv->off[gps-1][band2-1][i];
+            for (int i = 0; i < 19; i++) var[i] = pcv->var[gps-1][band2-1][i];
+        }
+        else {
+            // Skip if antenna parameters are not available
+            // It could affect the errors of phase measurements
             continue;
         }
 
-        // Initialize antenna parameters
-        for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, 0.0);
-        for (int i = 0; i < 19; i++) MatSetD(var, i, 0, 0.0);
+        // Compute antenna phase correction (e^T * off)
+        if (!Dot(&eVec, &offVec, &offc)) continue;
 
-        // Set antenna phase offset
-        for (int i = 0; i < 3; i++) {
-            MatSetD(off, i, 0, pcv->off[sys-1][band-1][i]);
-        }
+        // Phase center variation (zenith angle)
+        if (!Interp(&x0Vec, &varVec, 90.0 - el * R2D, &varc)) continue;
 
-            // Check and set antenna parameters
-            if (Norm(off) > 0.0) {
-                for (int i = 0; i < 19; i++) {
-                    // Set antenna phase variation
-                    MatSetD(var, i, 0, pcv->var[sys-1][band-1][i]);
-                }
-            }
-            else if (gps && band == band1) {    // Use GPS L1 antenna parameters if band 1 signals
-                for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, pcv->off[gps-1][band1-1][i]);
-                for (int i = 0; i < 19; i++) MatSetD(var, i, 0, pcv->var[gps-1][band1-1][i]);
-            }
-            else if (gps && sys == bds && band == band2) { // Use GPS L1 antenna parameters if BDS B1
-                for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, pcv->off[gps-1][band1-1][i]);
-                for (int i = 0; i < 19; i++) MatSetD(var, i, 0, pcv->var[gps-1][band1-1][i]);
-            }
-            else if (gps) { // Use GPS L2 antenna parameters for other signals
-                for (int i = 0; i < 3 ; i++) MatSetD(off, i, 0, pcv->off[gps-1][band2-1][i]);
-                for (int i = 0; i < 19; i++) MatSetD(var, i, 0, pcv->var[gps-1][band2-1][i]);
-            }
-            else {
-                // Skip if antenna parameters are not available
-                // It could affect the errors of phase measurements
-                continue;
-            }
-
-            // Compute antenna phase correction (e^T * off)
-            if (!Dot(e, off, &offc)) continue;
-
-            // Phase center variation (zenith angle)
-            if (!Interp(x0, var, 90.0 - el * R2D, &varc)) continue;
-
-            // Compute antenna phase correction [m]
-            MatSetD(dant, 0, f, -offc + varc);
+        // Compute antenna phase correction [m]
+        MatSetD(dant, 0, f, -offc + varc);
     }
 
-    // Free memory
-    FreeMat(e);
-    FreeMat(off);
-    FreeMat(var);
-    FreeMat(x0);
+    return dant;
+}
 
-    if (!info) {
-        FreeMat(dant);
+// Tropospheric delay base mapping function
+static double MapF(double el, double a, double b, double c)
+{
+    double sinel = sin(el);
+    return (1.0 + a / (1.0 + b / (1.0 + c))) / (sinel + (a / (sinel + b/(sinel + c))));
+}
+
+// Compute tropospheric delay mapping function by Niell mapping function
+mat_t *TropoMapF(double time, const mat_t *llh, const mat_t *azel)
+{
+    // Check if the input matrices are valid
+    if (llh->rows != 1 || llh->cols != 3) return NULL;
+    if (azel->rows != 1 || azel->cols != 2) return NULL;
+
+    // Check if satellite elevation angle is valid
+    double el = MatGetD(azel, 0, 1);
+    if (el < 0.0 || el > PI/2) return NULL;
+
+    // Additional safety check for very low elevation angles
+    if (el < 1e-6) return NULL;  // Reject extremely low elevation angles
+
+    // Check if time is valid
+    if (time < 0.0) return NULL;
+
+    // Constants for Niell mapping function
+    const double hgts[]= {2.53E-5, 5.49E-3, 1.14E-3};
+    const double lats[]= {15, 30, 45, 60, 75};
+
+    const double coef[][5]={
+        { 1.2769934E-3, 1.2683230E-3, 1.2465397E-3, 1.2196049E-3, 1.2045996E-3},
+        { 2.9153695E-3, 2.9152299E-3, 2.9288445E-3, 2.9022565E-3, 2.9024912E-3},
+        { 62.610505E-3, 62.837393E-3, 63.721774E-3, 63.824265E-3, 64.258455E-3},
+
+        { 0.0000000E-0, 1.2709626E-5, 2.6523662E-5, 3.4000452E-5, 4.1202191E-5},
+        { 0.0000000E-0, 2.1414979E-5, 3.0160779E-5, 7.2562722E-5, 11.723375E-5},
+        { 0.0000000E-0, 9.0128400E-5, 4.3497037E-5, 84.795348E-5, 170.37206E-5},
+
+        { 5.8021897E-4, 5.6794847E-4, 5.8118019E-4, 5.9727542E-4, 6.1641693E-4},
+        { 1.4275268E-3, 1.5138625E-3, 1.4572752E-3, 1.5007428E-3, 1.7599082E-3},
+        { 4.3472961E-2, 4.6729510E-2, 4.3908931E-2, 4.4626982E-2, 5.4736038E-2},
+    };
+
+    // Latitude [deg] and height
+    double lat = MatGetD(llh, 0, 0) * R2D;
+    double hgt = MatGetD(llh, 0, 2);
+
+    // Year from doy 28, added half a year for southern latitudes
+    double year = (Time2Doy(time) - 28) / 365.25;
+    year += (lat < 0.0) ? 0.5 : 0.0;
+
+    // Mapping function
+    lat = fabs(lat);
+    double cosy = cos(2.0 * PI * year);
+
+    // Create mat_t structures once for efficiency
+    const mat_t latVec = {5, 1, DOUBLE, (void *)lats};
+
+    // Interpolate coefficients of hydrostatic
+    double ah[3], aw[3], amp;
+    for (int i = 0; i < 3; i++) {
+        const mat_t avgVec = {5, 1, DOUBLE, (void *)coef[i]};
+        const mat_t ampVec = {5, 1, DOUBLE, (void *)coef[i+3]};
+        const mat_t wetVec = {5, 1, DOUBLE, (void *)coef[i+6]};
+
+        if (!Interp(&latVec, &avgVec, lat, ah+i)) return NULL;
+        if (!Interp(&latVec, &ampVec, lat, &amp)) return NULL;
+        if (!Interp(&latVec, &wetVec, lat, aw+i)) return NULL;
+
+        ah[i] = ah[i] - amp * cosy;
+    }
+
+    // Ellipsoidal height is used instead of height above sea level
+    double dm = (1.0/sin(el) - MapF(el, hgts[0], hgts[1], hgts[2])) * hgt / 1E3;
+
+    // Compute tropospheric delay mapping function
+    mat_t *mapf = Mat(1, 2, DOUBLE);
+    if (!mapf) return NULL;
+
+    MatSetD(mapf, 0, 0, MapF(el, ah[0], ah[1], ah[2]) + dm);
+    MatSetD(mapf, 0, 1, MapF(el, aw[0], aw[1], aw[2]));
+
+    return mapf;
+}
+
+// Compute tropospheric delay by standard atmosphere and Saastamoinen model
+mat_t *TropoModel(double time, const mat_t *llh, const mat_t *azel, double humi)
+{
+    // Check if the input matrices are valid
+    if (llh->rows != 1 || llh->cols != 3) return NULL;
+    if (azel->rows != 1 || azel->cols != 2) return NULL;
+
+    // Check if time is valid
+    if (time < 0.0) return NULL;
+
+    // Check elevation angle
+    double el = MatGetD(azel, 0, 1);
+    if (el < 1E-6 || el > PI/2) return NULL;
+
+    // Check if the humidity is valid
+    if (humi < 0.0 || humi > 1.0) return NULL;
+
+    // Initialize output matrix
+    mat_t *tropo = Zeros(1, 2, DOUBLE);
+    if (!tropo) return NULL;
+
+    // Check position height
+    double hgt = MatGetD(llh, 0, 2);
+    if (hgt > 1E4 || hgt < -1E2) return tropo;
+
+    // Standard atmosphere
+    hgt = hgt < 0.0 ? 0.0 : hgt;
+
+    double pres = 1013.25 * pow(1.0 - 2.2557E-5 * hgt, 5.2568);
+    double temp = 15 - 0.0065 * hgt + 273.16;
+    double e    = 6.108 * humi * exp((17.15 * temp - 4684.0) / (temp - 38.45));
+
+    // Mapping function
+    mat_t *mapf = TropoMapF(time, llh, azel);
+    if (!mapf) {
+        FreeMat(tropo);
         return NULL;
     }
-    return dant;
+
+    // Compute tropospheric delay by standard atmosphere and Saastamoinen model
+    double zdry = 0.0022768 * pres / (1.0 - 0.00266 * cos(2.0 * MatGetD(llh, 0, 0)) - 0.00028 * hgt / 1E3);
+    double zwet = 0.002277 * (1255.0 / temp + 0.05) * e;
+
+    // Compute tropospheric total delay and variance
+    double total = zdry * MatGetD(mapf, 0, 0) + zwet * MatGetD(mapf, 0, 1);
+    MatSetD(tropo, 0, 0, total);
+    MatSetD(tropo, 0, 1, SQR(STD_SAAS));
+
+    // Free memory
+    FreeMat(mapf);
+
+    return tropo;
+}
+
+// Compute ionospheric delay by GPS broadcast ionospheric model (Klobuchar)
+mat_t *IonoModel(double time, const mat_t *llh, const mat_t *azel, const mat_t *param)
+{
+    // Check if the input matrices are valid
+    if (llh->rows != 1 || llh->cols != 3) return NULL;
+    if (azel->rows != 1 || azel->cols != 2) return NULL;
+
+    // Check if time is valid
+    if (time < 0.0) return NULL;
+
+    // Check elevation angle
+    double el = MatGetD(azel, 0, 1);
+    if (el < 1E-6 || el > PI/2) return NULL;
+
+    // Check position height
+    double hgt = MatGetD(llh, 0, 2);
+    if (hgt < -1E3) return NULL;
+
+    // Default ionosphere model parameters (2004/01/01)
+    const double defparam[] = {
+        0.1118E-07, -0.7451E-08, -0.5961E-07,  0.1192E-06,
+        0.1167E+06, -0.2294E+06, -0.1311E+06,  0.1049E+07,
+    };
+    const mat_t defparamVec = {1, 8, DOUBLE, (void *)defparam};
+
+    // Use default parameters if input parameters are invalid or zero
+    const mat_t *ionparam = param;
+    if (!param || param->rows != 1 || param->cols != 8 || Norm(param) == 0.0) {
+        ionparam = &defparamVec;
+    }
+
+    // Initialize output matrix
+    mat_t *iono = Mat(1, 2, DOUBLE);
+    if (!iono) return NULL;
+
+    // Extract position and satellite direction
+    double lat = MatGetD(llh, 0, 0);  // [rad]
+    double lon = MatGetD(llh, 0, 1);  // [rad]
+    double az = MatGetD(azel, 0, 0);  // [rad]
+
+    // Earth centered angle (semi-circle)
+    double psi = 0.0137 / (el/PI + 0.11) - 0.022;
+
+    // Subionospheric latitude and longitude (semi-circle)
+    double phi = lat/PI + psi * cos(az);
+    if      (phi >  0.416) phi =  0.416;
+    else if (phi < -0.416) phi = -0.416;
+
+    double lam = lon/PI + psi * sin(az) / cos(phi * PI);
+
+    // Geometric latitude (semi-circle)
+    phi += 0.064 * cos((lam - 1.617) * PI);
+
+    // Local time
+    double tow = Time2Gpst(time, NULL);
+    double tt = fmod(43200.0 * lam + tow, 86400.0);
+
+    // Slant factor
+    double f = 1.0 + 16.0 * pow(0.53 - el/PI, 3.0);
+
+    // Ionospheric delay calculation
+    double amp = MatGetD(ionparam, 0, 0) + phi * (MatGetD(ionparam, 0, 1) +
+                 phi * (MatGetD(ionparam, 0, 2) + phi * MatGetD(ionparam, 0, 3)));
+    double per = MatGetD(ionparam, 0, 4) + phi * (MatGetD(ionparam, 0, 5) +
+                 phi * (MatGetD(ionparam, 0, 6) + phi * MatGetD(ionparam, 0, 7)));
+
+    // Apply constraints
+    amp = amp < 0.0     ? 0.0     : amp;
+    per = per < 72000.0 ? 72000.0 : per;
+
+    // Phase argument
+    double x = 2.0 * PI * (tt - 50400.0) / per;
+
+    // Compute ionospheric delay [m]
+    double delay;
+    if (fabs(x) < 1.57) {
+        delay = C_LIGHT * f * (5E-9 + amp * (1.0 + x * x * (-0.5 + x * x / 24.0)));
+    } else {
+        delay = C_LIGHT * f * 5E-9;
+    }
+
+    // Set output: delay [m] and variance [m^2]
+    MatSetD(iono, 0, 0, delay);
+    MatSetD(iono, 0, 1, SQR(STD_KLOB_FACTOR * delay));
+
+    return iono;
+}
+
+// Compute phase and code measurement error variance
+mat_t *MeasVar(int sat, double el, int nf, const opt_t *opt)
+{
+    // Check if the input matrices are valid
+    if (el < 1E-6 || el > PI/2) return NULL;
+
+    // Check if satellite system is valid
+    int sys = Sat2Prn(sat, NULL);
+    if (sys <= 0 || sys > NSYS) return NULL;
+
+    // Check if frequency index is valid
+    if (nf <= 0 || nf > NFREQ) return NULL;
+
+    // Check if processing options are valid
+    if (!opt) return NULL;
+
+    // System error factor
+    double fact;
+    switch (Sys2Str(sys)) {
+        case STR_GPS: fact = ERR_FACTOR_GPS; break;
+        case STR_GLO: fact = ERR_FACTOR_GLO; break;
+        case STR_GAL: fact = ERR_FACTOR_GAL; break;
+        case STR_BDS: fact = ERR_FACTOR_BDS; break;
+        case STR_QZS: fact = ERR_FACTOR_QZS; break;
+        case STR_IRN: fact = ERR_FACTOR_IRN; break;
+        case STR_SBS: fact = ERR_FACTOR_SBS; break;
+        default: return NULL;
+    }
+
+    // Initialize output matrix
+    mat_t *var = Mat(2, nf, DOUBLE);
+    if (!var) return NULL;
+
+    // Elevation dependent error variance
+    for (int f = 0; f < nf; f++) {
+        MatSetD(var, 0, f, SQR(fact * opt->err / sin(el)));
+        MatSetD(var, 1, f, SQR(opt->errratio) * MatGetD(var, 0, f));
+    }
+
+    return var;
 }
 
 // =============================================================================

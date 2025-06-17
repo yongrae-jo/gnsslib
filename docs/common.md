@@ -3,31 +3,31 @@ layout: default
 title: GNSS 공통 유틸리티 모듈 (common)
 ---
 
-# ★ GNSS 공통 유틸리티 모듈 (common)
+# GNSS 공통 유틸리티 모듈 (common)
 
 GNSS 라이브러리의 핵심 유틸리티 함수들을 제공하는 기반 모듈입니다.
 
-## ■ 목차
+## 목차
 
-1. [기본 개념](#▲-기본-개념)
-2. [데이터 타입 구조](#▲-데이터-타입-구조)
-3. [데이터 타입 목록](#▲-데이터-타입-목록)
-4. [함수 구조](#▲-함수-구조)
-5. [함수 목록](#▲-함수-목록)
-6. [사용 예시](#▲-사용-예시)
-7. [성능 특성](#▲-성능-특성)
+1. [기본 개념](#1-기본-개념)
+2. [데이터 타입 구조](#2-데이터-타입-구조)
+3. [데이터 타입 목록](#3-데이터-타입-목록)
+4. [함수 구조](#4-함수-구조)
+5. [함수 목록](#5-함수-목록)
+6. [사용 예시](#6-사용-예시)
+7. [성능 특성](#7-성능-특성)
 
 ---
 
-## ▲ 기본 개념
+## 1. 기본 개념
 
-### ◆ 위성 인덱스 시스템
+### 1.1 위성 인덱스 시스템
 GNSS 시스템별 PRN(Pseudo Random Noise) 번호를 연속적인 정수 인덱스로 매핑하여 배열 기반 효율적 접근을 제공합니다.
 
 **통합 인덱스 계산 공식:**
 $$\text{sat} = \text{BASE}[\text{sys}-1] + (\text{prn} - \text{MIN\_PRN}[\text{sys}] + 1)$$
 
-### ◆ 시간 시스템 통합
+### 1.2 시간 시스템 통합
 다양한 GNSS 시간 체계를 UNIX Timestamp 기준으로 통합하여 상호 변환을 지원합니다.
 
 **기준 시간**: UNIX Timestamp (1970/1/1 00:00:00 UTC)
@@ -38,14 +38,14 @@ $$\text{sat} = \text{BASE}[\text{sys}-1] + (\text{prn} - \text{MIN\_PRN}[\text{s
 - **Galileo System Time**: 1999/8/22 00:00:00 UTC 기준 (GPS Time과 동일)
 - **BeiDou Time**: 2006/1/1 00:00:00 UTC 기준
 
-### ◆ 문자열 표현 통일
+### 1.3 문자열 표현 통일
 위성 식별자와 시간 정보를 표준화된 문자열 형식으로 표현하여 가독성과 호환성을 보장합니다.
 
 **표준 형식**:
 - 위성: `"CXX"` (C: 시스템 코드, XX: PRN 번호)
 - 시간: `"YYYY/MM/DD HH:MM:SS.sss"` (소수점 자릿수 조절 가능)
 
-### ◆ 고급 GNSS 좌표 변환
+### 1.4 고급 GNSS 좌표 변환
 WGS84 타원체 기반의 정밀한 좌표 변환을 지원합니다:
 - **ECEF ↔ 지리좌표**: 고정밀 타원체 변환
 - **ECEF ↔ ENU**: 지역 좌표계 변환
@@ -53,7 +53,7 @@ WGS84 타원체 기반의 정밀한 좌표 변환을 지원합니다:
 - **위성 기하 계산**: 방위각/고도각, 기하거리
 - **Sagnac 효과 보정**: 지구 자전에 의한 보정
 
-### ◆ 정밀도 희석 지수 (DOP) 계산
+### 1.5 정밀도 희석 지수 (DOP) 계산
 위성 기하학적 배치가 측위 정확도에 미치는 영향을 정량화:
 - **GDOP**: 기하학적 정밀도 희석 지수 (위치 + 시간)
 - **PDOP**: 위치 정밀도 희석 지수 (3차원 위치)
@@ -63,7 +63,7 @@ WGS84 타원체 기반의 정밀한 좌표 변환을 지원합니다:
 
 ---
 
-## ▲ 데이터 타입 구조
+## 2. 데이터 타입 구조
 
 ```
 common 모듈 타입 계층
@@ -89,9 +89,9 @@ common 모듈 타입 계층
 
 ---
 
-## ▲ 데이터 타입 목록
+## 3. 데이터 타입 목록
 
-#### ◆ satStr_t - 위성 문자열 구조체
+### 3.1 satStr_t - 위성 문자열 구조체
 <details>
 <summary>상세 설명</summary>
 
@@ -115,7 +115,7 @@ typedef struct satStr {
 
 </details>
 
-#### ◆ cal_t - 달력 시간 구조체
+### 3.2 cal_t - 달력 시간 구조체
 <details>
 <summary>상세 설명</summary>
 
@@ -135,7 +135,7 @@ typedef struct cal {
 
 </details>
 
-#### ◆ calStr_t - 달력 문자열 구조체
+### 3.3 calStr_t - 달력 문자열 구조체
 <details>
 <summary>상세 설명</summary>
 
@@ -153,7 +153,7 @@ typedef struct calStr {
 
 </details>
 
-#### ◆ pcv_t - 안테나 위상 중심 보정 데이터
+### 3.4 pcv_t - 안테나 위상 중심 보정 데이터
 <details>
 <summary>상세 설명</summary>
 
@@ -174,7 +174,7 @@ typedef struct pcv {
 
 </details>
 
-#### ◆ pcvs_t - 안테나 보정 데이터 집합
+### 3.5 pcvs_t - 안테나 보정 데이터 집합
 <details>
 <summary>상세 설명</summary>
 
@@ -190,7 +190,7 @@ typedef struct pcvs {
 
 </details>
 
-#### ◆ sta_t - 수신기 정보 구조체
+### 3.6 sta_t - 수신기 정보 구조체
 <details>
 <summary>상세 설명</summary>
 
@@ -217,7 +217,7 @@ typedef struct sta {
 
 </details>
 
-#### ◆ nav_t - 통합 네비게이션 구조체
+### 3.7 nav_t - 통합 네비게이션 구조체
 <details>
 <summary>상세 설명</summary>
 
@@ -238,7 +238,7 @@ typedef struct nav {
 
 ---
 
-## ▲ 함수 구조
+## 4. 함수 구조
 
 ```
 common 모듈 함수 계층
@@ -294,11 +294,11 @@ common 모듈 함수 계층
 
 ---
 
-## ▲ 함수 목록
+## 5. 함수 목록
 
-#### ◆ 초기화 및 메모리 관리 함수
+### 5.1 초기화 및 메모리 관리 함수
 
-##### ● InitNav() - 네비게이션 구조체 초기화
+#### 5.1.1 InitNav() - 네비게이션 구조체 초기화
 <details>
 <summary>상세 설명</summary>
 
@@ -316,9 +316,21 @@ common 모듈 함수 계층
 3. 처리 옵션 메모리 할당 및 기본값 설정
 4. 메모리 할당 실패 시 에러 출력 후 프로그램 종료
 
+**사용 예시**:
+```c
+nav_t nav;
+InitNav(&nav);
+
+// 네비게이션 구조체 사용
+// ... 궤도력 로드, 관측 데이터 처리 등 ...
+
+// 사용 완료 후 메모리 해제
+FreeNav(&nav);
+```
+
 </details>
 
-##### ● FreeNav() - 네비게이션 구조체 메모리 해제
+#### 5.1.2 FreeNav() - 네비게이션 구조체 메모리 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -336,11 +348,23 @@ common 모듈 함수 계층
 3. 처리 옵션 메모리 해제
 4. 포인터를 NULL로 설정하여 안전성 보장
 
+**사용 예시**:
+```c
+nav_t nav;
+InitNav(&nav);
+
+// 네비게이션 데이터 사용...
+
+// 프로그램 종료 전 메모리 해제
+FreeNav(&nav);
+printf("네비게이션 구조체 메모리 해제 완료\n");
+```
+
 </details>
 
-#### ◆ GLONASS FCN 관리 함수
+### 5.2 GLONASS FCN 관리 함수
 
-##### ● GetFcn() - GLONASS FCN 조회
+#### 5.2.1 GetFcn() - GLONASS FCN 조회
 <details>
 <summary>상세 설명</summary>
 
@@ -359,9 +383,19 @@ common 모듈 함수 계층
 3. FCN 유효성 검사 (-7 ≤ fcn ≤ 6)
 4. 유효한 FCN이면 포인터에 저장 후 1 반환, 아니면 0 반환
 
+**사용 예시**:
+```c
+int fcn;
+if (GetFcn(1, &fcn)) {
+    printf("GLONASS PRN 1의 FCN: %d\n", fcn);
+} else {
+    printf("GLONASS PRN 1의 FCN을 찾을 수 없습니다.\n");
+}
+```
+
 </details>
 
-##### ● SetFcn() - GLONASS FCN 설정
+#### 5.2.2 SetFcn() - GLONASS FCN 설정
 <details>
 <summary>상세 설명</summary>
 
@@ -380,9 +414,20 @@ common 모듈 함수 계층
 3. 유효한 값이면 내부 FCN 배열에 저장 (FCN[prn-1] = fcn + 8)
 4. 유효하지 않으면 함수 종료
 
+**사용 예시**:
+```c
+// GLONASS PRN 1에 FCN -7 설정
+SetFcn(1, -7);
+
+// GLONASS PRN 2에 FCN -6 설정
+SetFcn(2, -6);
+
+printf("GLONASS FCN 설정 완료\n");
+```
+
 </details>
 
-##### ● SetDefaultFcn() - 기본 FCN 설정
+#### 5.2.3 SetDefaultFcn() - 기본 FCN 설정
 <details>
 <summary>상세 설명</summary>
 
@@ -399,11 +444,26 @@ common 모듈 함수 계층
 2. 각 GLONASS PRN에 대응하는 기본 FCN 값 설정
 3. 모든 GLONASS 위성 (PRN 1-24)에 대해 순차적 설정
 
+**사용 예시**:
+```c
+// 모든 GLONASS 위성에 기본 FCN 설정
+SetDefaultFcn();
+printf("모든 GLONASS 위성에 기본 FCN 설정 완료\n");
+
+// 설정된 FCN 확인
+int fcn;
+for (int prn = 1; prn <= 24; prn++) {
+    if (GetFcn(prn, &fcn)) {
+        printf("GLONASS PRN %d: FCN %d\n", prn, fcn);
+    }
+}
+```
+
 </details>
 
-#### ◆ 위성 인덱스 변환 함수
+### 5.3 위성 인덱스 변환 함수
 
-##### ● Prn2Sat() - PRN을 위성 인덱스로 변환
+#### 5.3.1 Prn2Sat() - PRN을 위성 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -422,9 +482,26 @@ common 모듈 함수 계층
 3. 베이스 인덱스 + 상대 PRN으로 위성 인덱스 계산
 4. 계산 공식: `BASE[sys-1] + (prn - MIN_PRN[sys] + 1)`
 
+**사용 예시**:
+```c
+// GPS PRN 5를 위성 인덱스로 변환
+int gps_sat = Prn2Sat(1, 5);  // GPS 시스템(1), PRN 5
+printf("GPS PRN 5 위성 인덱스: %d\n", gps_sat);
+
+// GLONASS PRN 1을 위성 인덱스로 변환
+int glo_sat = Prn2Sat(2, 1);  // GLONASS 시스템(2), PRN 1
+printf("GLONASS PRN 1 위성 인덱스: %d\n", glo_sat);
+
+// 오류 처리
+int invalid_sat = Prn2Sat(1, 99);  // 잘못된 PRN
+if (invalid_sat == 0) {
+    printf("잘못된 PRN 번호입니다.\n");
+}
+```
+
 </details>
 
-##### ● Sat2Prn() - 위성 인덱스를 PRN으로 변환
+#### 5.3.2 Sat2Prn() - 위성 인덱스를 PRN으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -443,9 +520,32 @@ common 모듈 함수 계층
 3. 시스템 내 상대 인덱스에서 PRN 계산
 4. PRN = 상대인덱스 + MIN_PRN[sys] - 1
 
+**사용 예시**:
+```c
+// 위성 인덱스를 PRN으로 변환
+int gps_sat = Prn2Sat(1, 5);  // GPS PRN 5 → 위성 인덱스
+int prn;
+int sys = Sat2Prn(gps_sat, &prn);  // 위성 인덱스 → PRN
+
+if (sys > 0) {
+    printf("위성 인덱스 %d → 시스템: %d, PRN: %d\n", gps_sat, sys, prn);
+} else {
+    printf("잘못된 위성 인덱스입니다.\n");
+}
+
+// 다양한 시스템 테스트
+int test_sats[] = {5, 33, 69, 105};  // GPS, GLO, GAL, BDS 예시
+for (int i = 0; i < 4; i++) {
+    int sys = Sat2Prn(test_sats[i], &prn);
+    if (sys > 0) {
+        printf("위성 %d: 시스템 %d, PRN %d\n", test_sats[i], sys, prn);
+    }
+}
+```
+
 </details>
 
-##### ● Str2Sat() - 위성 문자열을 위성 인덱스로 변환
+#### 5.3.3 Str2Sat() - 위성 문자열을 위성 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -463,9 +563,30 @@ common 모듈 함수 계층
 3. 나머지 문자에서 PRN 번호 파싱
 4. Prn2Sat() 호출하여 최종 위성 인덱스 계산
 
+**사용 예시**:
+```c
+// 위성 문자열을 위성 인덱스로 변환
+satStr_t sat_str = {"G05"};  // GPS PRN 5
+int sat = Str2Sat(sat_str);
+if (sat > 0) {
+    printf("위성 문자열 %s → 위성 인덱스: %d\n", sat_str.str, sat);
+} else {
+    printf("잘못된 위성 문자열입니다: %s\n", sat_str.str);
+}
+
+// 다양한 시스템 테스트
+char *test_strs[] = {"G01", "R01", "E01", "C01", "J01", "I01", "S20"};
+for (int i = 0; i < 7; i++) {
+    satStr_t str = {0};
+    strcpy(str.str, test_strs[i]);
+    int sat_idx = Str2Sat(str);
+    printf("%s → 위성 인덱스: %d\n", test_strs[i], sat_idx);
+}
+```
+
 </details>
 
-##### ● Sat2Str() - 위성 인덱스를 위성 문자열로 변환
+#### 5.3.4 Sat2Str() - 위성 인덱스를 위성 문자열로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -483,11 +604,34 @@ common 모듈 함수 계층
 3. PRN을 2자리 문자열로 포맷팅
 4. "CXX" 형식으로 최종 문자열 조합
 
+**사용 예시**:
+```c
+// 위성 인덱스를 문자열로 변환
+int gps_sat = Prn2Sat(1, 5);  // GPS PRN 5
+satStr_t str = Sat2Str(gps_sat);
+if (strlen(str.str) > 0) {
+    printf("위성 인덱스 %d → 위성 문자열: %s\n", gps_sat, str.str);
+} else {
+    printf("잘못된 위성 인덱스입니다: %d\n", gps_sat);
+}
+
+// 완전한 변환 테스트 (인덱스 → 문자열 → 인덱스)
+int original_sat = Prn2Sat(2, 10);  // GLONASS PRN 10
+satStr_t sat_str = Sat2Str(original_sat);
+int converted_sat = Str2Sat(sat_str);
+
+printf("원본: %d → 문자열: %s → 변환: %d\n",
+       original_sat, sat_str.str, converted_sat);
+if (original_sat == converted_sat) {
+    printf("변환 성공!\n");
+}
+```
+
 </details>
 
-#### ◆ 시간 변환 함수
+### 5.4 시간 변환 함수
 
-##### ● Cal2Time() - 달력을 UNIX Time으로 변환
+#### 5.4.1 Cal2Time() - 달력을 UNIX Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -505,9 +649,29 @@ common 모듈 함수 계층
 3. 윤년 보정 및 월별 일수 누적
 4. 초 단위로 변환하여 반환
 
+**사용 예시**:
+```c
+// 달력 시간 구조체 생성
+cal_t cal = {2024, 12, 25, 15, 30, 45.123};
+
+// 달력을 UNIX Time으로 변환
+double unix_time = Cal2Time(cal);
+if (unix_time > 0.0) {
+    printf("2024/12/25 15:30:45.123 → UNIX Time: %.3f\n", unix_time);
+} else {
+    printf("잘못된 달력 시간입니다.\n");
+}
+
+// 역변환으로 검증
+cal_t cal_back = Time2Cal(unix_time);
+printf("역변환: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       cal_back.year, cal_back.mon, cal_back.day,
+       cal_back.hour, cal_back.min, cal_back.sec);
+```
+
 </details>
 
-##### ● Time2Cal() - UNIX Time을 달력으로 변환
+#### 5.4.2 Time2Cal() - UNIX Time을 달력으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -525,9 +689,27 @@ common 모듈 함수 계층
 3. 윤년 고려한 월별 일수 처리
 4. 당일 초를 시/분/초로 분해
 
+**사용 예시**:
+```c
+// UNIX Time을 달력으로 변환
+double unix_time = TimeGet();  // 현재 시간
+cal_t cal = Time2Cal(unix_time);
+
+printf("현재 시간: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       cal.year, cal.mon, cal.day,
+       cal.hour, cal.min, cal.sec);
+
+// 특정 UNIX Time 변환
+double test_time = 1735128645.123;  // 예시 시간
+cal_t test_cal = Time2Cal(test_time);
+printf("UNIX Time %.3f → %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       test_time, test_cal.year, test_cal.mon, test_cal.day,
+       test_cal.hour, test_cal.min, test_cal.sec);
+```
+
 </details>
 
-##### ● Gpst2Time() - GPS Time을 UNIX Time으로 변환
+#### 5.4.3 Gpst2Time() - GPS Time을 UNIX Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -554,9 +736,30 @@ $$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
 3. 주내 초를 초 단위로 변환
 4. UNIX 기준으로 최종 시간 계산
 
+**사용 예시**:
+```c
+// GPS Time을 UNIX Time으로 변환
+int gps_week = 2296;
+double tow = 345678.5;
+double unix_time = Gpst2Time(gps_week, tow);
+
+printf("GPS 주차 %d, 주내초 %.1f → UNIX Time: %.3f\n",
+       gps_week, tow, unix_time);
+
+// 달력으로 확인
+cal_t cal = Time2Cal(unix_time);
+printf("달력 시간: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       cal.year, cal.mon, cal.day, cal.hour, cal.min, cal.sec);
+
+// 역변환으로 검증
+int week_back;
+double tow_back = Time2Gpst(unix_time, &week_back);
+printf("역변환: 주차 %d, 주내초 %.1f\n", week_back, tow_back);
+```
+
 </details>
 
-##### ● Time2Gpst() - UNIX Time을 GPS Time으로 변환
+#### 5.4.4 Time2Gpst() - UNIX Time을 GPS Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -577,7 +780,7 @@ $$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
 
 </details>
 
-##### ● Bdt2Time() - BeiDou Time을 UNIX Time으로 변환
+#### 5.4.5 Bdt2Time() - BeiDou Time을 UNIX Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -597,7 +800,7 @@ $$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
 
 </details>
 
-##### ● Time2Bdt() - UNIX Time을 BeiDou Time으로 변환
+#### 5.4.6 Time2Bdt() - UNIX Time을 BeiDou Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -615,9 +818,24 @@ $$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
 2. 주차와 주내 초 분리
 3. 주차는 포인터에 저장, 주내 초는 반환
 
+**사용 예시**:
+```c
+// UNIX Time을 BeiDou Time으로 변환
+double unix_time = TimeGet();  // 현재 시간
+int bdt_week;
+double bdt_tow = Time2Bdt(unix_time, &bdt_week);
+
+printf("UNIX Time %.3f → BeiDou 주차: %d, 주내초: %.1f\n",
+       unix_time, bdt_week, bdt_tow);
+
+// 역변환으로 검증
+double unix_back = Bdt2Time(bdt_week, bdt_tow);
+printf("역변환 검증: %.3f (차이: %.6f초)\n", unix_back, unix_time - unix_back);
+```
+
 </details>
 
-##### ● TimeGet() - 현재 시간 조회
+#### 5.4.7 TimeGet() - 현재 시간 조회
 <details>
 <summary>상세 설명</summary>
 
@@ -634,9 +852,27 @@ $$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
 2. Unix/Linux: gettimeofday() 함수 사용 (마이크로초 정밀도)
 3. 시스템별 조건부 컴파일로 플랫폼 호환성 보장
 
+**사용 예시**:
+```c
+// 현재 시간 조회
+double current_time = TimeGet();
+printf("현재 UNIX Time: %.3f\n", current_time);
+
+// 달력 형태로 확인
+cal_t cal = Time2Cal(current_time);
+printf("현재 시간: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       cal.year, cal.mon, cal.day, cal.hour, cal.min, cal.sec);
+
+// 처리 시간 측정
+double start_time = TimeGet();
+// ... 어떤 처리 작업 ...
+double end_time = TimeGet();
+printf("처리 시간: %.3f초\n", end_time - start_time);
+```
+
 </details>
 
-##### ● Gpst2Utc() - GPS Time을 UTC로 변환
+#### 5.4.8 Gpst2Utc() - GPS Time을 UTC로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -669,9 +905,30 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 2. 윤초 테이블에서 적절한 윤초 값 찾기
 3. GPS Time에 윤초 적용하여 UTC 계산
 
+**사용 예시**:
+```c
+// GPS Time을 UTC로 변환 (윤초 보정)
+double gps_time = TimeGet();  // 현재 GPS Time
+double utc_time = Gpst2Utc(gps_time);
+
+printf("GPS Time: %.3f\n", gps_time);
+printf("UTC Time: %.3f\n", utc_time);
+printf("윤초 보정: %.1f초\n", utc_time - gps_time);
+
+// 달력으로 확인
+cal_t gps_cal = Time2Cal(gps_time);
+cal_t utc_cal = Time2Cal(utc_time);
+printf("GPS: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       gps_cal.year, gps_cal.mon, gps_cal.day,
+       gps_cal.hour, gps_cal.min, gps_cal.sec);
+printf("UTC: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       utc_cal.year, utc_cal.mon, utc_cal.day,
+       utc_cal.hour, utc_cal.min, utc_cal.sec);
+```
+
 </details>
 
-##### ● Utc2Gpst() - UTC를 GPS Time으로 변환
+#### 5.4.9 Utc2Gpst() - UTC를 GPS Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -687,9 +944,24 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 1. 입력 UTC에 해당하는 윤초 조회
 2. UTC에서 윤초를 차감하여 GPS Time 계산
 
+**사용 예시**:
+```c
+// UTC를 GPS Time으로 변환
+double utc_time = TimeGet();  // 현재 UTC 시간
+double gps_time = Utc2Gpst(utc_time);
+
+printf("UTC Time: %.3f\n", utc_time);
+printf("GPS Time: %.3f\n", gps_time);
+printf("윤초 보정: %.1f초\n", gps_time - utc_time);
+
+// 역변환으로 검증
+double utc_back = Gpst2Utc(gps_time);
+printf("역변환 검증: %.3f (차이: %.6f초)\n", utc_back, utc_time - utc_back);
+```
+
 </details>
 
-##### ● Gpst2Bdt() - GPS Time을 BeiDou Time으로 변환
+#### 5.4.10 Gpst2Bdt() - GPS Time을 BeiDou Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -705,9 +977,28 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 1. GPS와 BeiDou 시간 기준점 차이 계산 (14초)
 2. GPS Time에서 14초 차감하여 BeiDou Time 계산
 
+**사용 예시**:
+```c
+// GPS Time을 BeiDou Time으로 변환
+double gps_time = TimeGet();
+double bdt_time = Gpst2Bdt(gps_time);
+
+printf("GPS Time: %.3f\n", gps_time);
+printf("BeiDou Time: %.3f\n", bdt_time);
+printf("시간 차이: %.1f초\n", gps_time - bdt_time);
+
+// 주차/주내초 형태로 확인
+int gps_week, bdt_week;
+double gps_tow = Time2Gpst(gps_time, &gps_week);
+double bdt_tow = Time2Bdt(bdt_time, &bdt_week);
+
+printf("GPS: 주차 %d, 주내초 %.1f\n", gps_week, gps_tow);
+printf("BeiDou: 주차 %d, 주내초 %.1f\n", bdt_week, bdt_tow);
+```
+
 </details>
 
-##### ● Bdt2Gpst() - BeiDou Time을 GPS Time으로 변환
+#### 5.4.11 Bdt2Gpst() - BeiDou Time을 GPS Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -722,9 +1013,24 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 **함수 로직**:
 1. BeiDou Time에 14초 가산하여 GPS Time 계산
 
+**사용 예시**:
+```c
+// BeiDou Time을 GPS Time으로 변환
+double bdt_time = TimeGet();  // 현재 BeiDou Time
+double gps_time = Bdt2Gpst(bdt_time);
+
+printf("BeiDou Time: %.3f\n", bdt_time);
+printf("GPS Time: %.3f\n", gps_time);
+printf("시간 차이: %.1f초\n", gps_time - bdt_time);
+
+// 역변환으로 검증
+double bdt_back = Gpst2Bdt(gps_time);
+printf("역변환 검증: %.3f (차이: %.6f초)\n", bdt_back, bdt_time - bdt_back);
+```
+
 </details>
 
-##### ● Time2Doy() - 시간을 연중 일자로 변환
+#### 5.4.12 Time2Doy() - 시간을 연중 일자로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -741,9 +1047,34 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 2. 해당 년도의 1월 1일부터 일수 계산
 3. 윤년 고려하여 정확한 연중 일자 반환
 
+**사용 예시**:
+```c
+// 현재 시간의 연중 일자 계산
+double current_time = TimeGet();
+int doy = Time2Doy(current_time);
+cal_t cal = Time2Cal(current_time);
+
+printf("현재 시간: %04d/%02d/%02d\n", cal.year, cal.mon, cal.day);
+printf("연중 일자: %d일째\n", doy);
+
+// 특정 날짜들의 연중 일자
+cal_t test_dates[] = {
+    {2024, 1, 1, 0, 0, 0.0},    // 신정
+    {2024, 12, 25, 0, 0, 0.0},  // 크리스마스
+    {2024, 12, 31, 0, 0, 0.0}   // 대한민국 마지막 날
+};
+
+for (int i = 0; i < 3; i++) {
+    double time = Cal2Time(test_dates[i]);
+    int doy = Time2Doy(time);
+    printf("%04d/%02d/%02d → 연중 %d일째\n",
+           test_dates[i].year, test_dates[i].mon, test_dates[i].day, doy);
+}
+```
+
 </details>
 
-##### ● Str2Cal() - 문자열을 달력으로 변환
+#### 5.4.13 Str2Cal() - 문자열을 달력으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -760,9 +1091,37 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 2. sscanf를 사용하여 년, 월, 일, 시, 분, 초 파싱
 3. 파싱된 값들로 cal_t 구조체 구성
 
+**사용 예시**:
+```c
+// 문자열을 달력으로 변환
+calStr_t time_str = {"2024/12/25 15:30:45.123"};
+cal_t cal = Str2Cal(time_str);
+
+printf("입력 문자열: %s\n", time_str.str);
+printf("변환된 달력: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       cal.year, cal.mon, cal.day, cal.hour, cal.min, cal.sec);
+
+// 다양한 형식 테스트
+char *test_strs[] = {
+    "2024/01/01 00:00:00.000",
+    "2024/06/15 12:30:45.500",
+    "2024/12/31 23:59:59.999"
+};
+
+for (int i = 0; i < 3; i++) {
+    calStr_t str = {0};
+    strcpy(str.str, test_strs[i]);
+    cal_t cal = Str2Cal(str);
+
+    // UNIX Time으로 변환하여 검증
+    double unix_time = Cal2Time(cal);
+    printf("%s → UNIX Time: %.3f\n", test_strs[i], unix_time);
+}
+```
+
 </details>
 
-##### ● Cal2Str() - 달력을 문자열로 변환
+#### 5.4.14 Cal2Str() - 달력을 문자열로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -780,11 +1139,34 @@ $$\Delta t_{\text{LS}} = \begin{cases}
 2. snprintf를 사용하여 지정된 포맷으로 문자열 생성
 3. 소수점 자릿수에 따른 초 포맷팅
 
+**사용 예시**:
+```c
+// 달력을 문자열로 변환 (다양한 소수점 자릿수)
+cal_t cal = {2024, 12, 25, 15, 30, 45.123456};
+
+// 소수점 자릿수별 변환
+for (int dec = 0; dec <= 3; dec++) {
+    calStr_t str = Cal2Str(cal, dec);
+    printf("소수점 %d자리: %s\n", dec, str.str);
+}
+
+// 현재 시간을 문자열로 변환
+double current_time = TimeGet();
+cal_t current_cal = Time2Cal(current_time);
+calStr_t current_str = Cal2Str(current_cal, 3);
+printf("현재 시간: %s\n", current_str.str);
+
+// 역변환으로 검증
+cal_t cal_back = Str2Cal(current_str);
+double time_back = Cal2Time(cal_back);
+printf("역변환 검증: %.6f초 차이\n", current_time - time_back);
+```
+
 </details>
 
-#### ◆ GNSS 좌표 변환 함수
+### 5.5 GNSS 좌표 변환 함수
 
-##### ● Xyz2Llh() - ECEF → 지리좌표 변환
+#### 5.5.1 Xyz2Llh() - ECEF → 지리좌표 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -825,7 +1207,7 @@ $$h = \sqrt{L^2 + p^2} - N$$
 
 </details>
 
-##### ● Llh2Xyz() - 지리좌표 → ECEF 변환
+#### 5.5.2 Llh2Xyz() - 지리좌표 → ECEF 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -854,9 +1236,38 @@ $$z = (N(1-e^2) + h) \sin\phi$$
 - 곡률반지름 계산
 - 직교 좌표 변환 공식 적용
 
+**사용 예시**:
+```c
+// 지리좌표를 ECEF로 변환
+mat_t *llh = Mat(1, 3, DOUBLE);
+MatSetD(llh, 0, 0, 37.5665 * D2R);  // 위도 [rad] (서울)
+MatSetD(llh, 0, 1, 126.9780 * D2R); // 경도 [rad] (서울)
+MatSetD(llh, 0, 2, 100.0);          // 높이 [m]
+
+mat_t *xyz = Llh2Xyz(llh);
+if (xyz) {
+    printf("서울 좌표 (위도: %.4f°, 경도: %.4f°, 높이: %.1fm)\n",
+           37.5665, 126.9780, 100.0);
+    printf("ECEF: X=%.3f, Y=%.3f, Z=%.3f [m]\n",
+           MatGetD(xyz, 0, 0), MatGetD(xyz, 0, 1), MatGetD(xyz, 0, 2));
+
+    // 역변환으로 검증
+    mat_t *llh_back = Xyz2Llh(xyz);
+    if (llh_back) {
+        printf("역변환: 위도=%.6f°, 경도=%.6f°, 높이=%.3fm\n",
+               MatGetD(llh_back, 0, 0) * R2D,
+               MatGetD(llh_back, 0, 1) * R2D,
+               MatGetD(llh_back, 0, 2));
+        FreeMat(llh_back);
+    }
+}
+
+FreeMat(llh); FreeMat(xyz);
+```
+
 </details>
 
-##### ● Xyz2Rot() - 회전행렬 생성
+#### 5.5.3 Xyz2Rot() - 회전행렬 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -873,9 +1284,41 @@ $$z = (N(1-e^2) + h) \sin\phi$$
 - 위도/경도 기반 회전행렬 계산
 - East, North, Up 방향 벡터 생성
 
+**사용 예시**:
+```c
+// ECEF 좌표에서 회전행렬 생성
+mat_t *xyz = Mat(1, 3, DOUBLE);
+MatSetD(xyz, 0, 0, -2694685.473);  // X [m]
+MatSetD(xyz, 0, 1, -4293642.366);  // Y [m]
+MatSetD(xyz, 0, 2,  3857878.924);  // Z [m]
+
+mat_t *rot = Xyz2Rot(xyz);
+if (rot) {
+    printf("ECEF → ENU 회전행렬:\n");
+    for (int i = 0; i < 3; i++) {
+        printf("[");
+        for (int j = 0; j < 3; j++) {
+            printf("%8.5f", MatGetD(rot, i, j));
+            if (j < 2) printf(", ");
+        }
+        printf("]\n");
+    }
+
+    // 회전행렬의 직교성 검증 (R * R^T = I)
+    mat_t *rot_t = MatTrans(rot);
+    mat_t *identity = MatMul(rot, rot_t);
+    printf("직교성 검증 (대각선 원소들): %.6f, %.6f, %.6f\n",
+           MatGetD(identity, 0, 0), MatGetD(identity, 1, 1), MatGetD(identity, 2, 2));
+
+    FreeMat(rot_t); FreeMat(identity);
+}
+
+FreeMat(xyz); FreeMat(rot);
+```
+
 </details>
 
-##### ● Xyz2Enu() - ECEF → ENU 변환
+#### 5.5.4 Xyz2Enu() - ECEF → ENU 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -893,9 +1336,46 @@ $$z = (N(1-e^2) + h) \sin\phi$$
 - 회전행렬을 통한 ENU 변환
 - East, North, Up 성분 반환
 
+**사용 예시**:
+```c
+// 수신기 위치 (원점)
+mat_t *origin = Mat(1, 3, DOUBLE);
+MatSetD(origin, 0, 0, -2694685.473);  // X [m]
+MatSetD(origin, 0, 1, -4293642.366);  // Y [m]
+MatSetD(origin, 0, 2,  3857878.924);  // Z [m]
+
+// 위성 위치
+mat_t *sat_pos = Mat(1, 3, DOUBLE);
+MatSetD(sat_pos, 0, 0, 12611434.0);   // X [m]
+MatSetD(sat_pos, 0, 1, -13413103.0);  // Y [m]
+MatSetD(sat_pos, 0, 2, 19062913.0);   // Z [m]
+
+// ECEF → ENU 변환
+mat_t *enu = Xyz2Enu(sat_pos, origin);
+if (enu) {
+    double east = MatGetD(enu, 0, 0);
+    double north = MatGetD(enu, 0, 1);
+    double up = MatGetD(enu, 0, 2);
+
+    printf("ENU 좌표: E=%.1f, N=%.1f, U=%.1f [m]\n", east, north, up);
+    printf("수평거리: %.1f m\n", sqrt(east*east + north*north));
+    printf("3차원거리: %.1f m\n", sqrt(east*east + north*north + up*up));
+
+    // 역변환으로 검증
+    mat_t *xyz_back = Enu2Xyz(enu, origin);
+    if (xyz_back) {
+        printf("역변환 검증: X=%.3f, Y=%.3f, Z=%.3f [m]\n",
+               MatGetD(xyz_back, 0, 0), MatGetD(xyz_back, 0, 1), MatGetD(xyz_back, 0, 2));
+        FreeMat(xyz_back);
+    }
+}
+
+FreeMat(origin); FreeMat(sat_pos); FreeMat(enu);
+```
+
 </details>
 
-##### ● Enu2Xyz() - ENU → ECEF 변환
+#### 5.5.5 Enu2Xyz() - ENU → ECEF 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -913,9 +1393,50 @@ $$z = (N(1-e^2) + h) \sin\phi$$
 - ENU → ECEF 역변환 수행
 - 원점 좌표 더하여 최종 ECEF 계산
 
+**사용 예시**:
+```c
+// 원점 ECEF 좌표 (수신기 위치)
+mat_t *origin = Mat(1, 3, DOUBLE);
+MatSetD(origin, 0, 0, -2694685.473);  // X [m]
+MatSetD(origin, 0, 1, -4293642.366);  // Y [m]
+MatSetD(origin, 0, 2,  3857878.924);  // Z [m]
+
+// ENU 지역좌표 (상대 위치)
+mat_t *enu = Mat(1, 3, DOUBLE);
+MatSetD(enu, 0, 0, 1000.0);   // East [m]
+MatSetD(enu, 0, 1, 2000.0);   // North [m]
+MatSetD(enu, 0, 2, 500.0);    // Up [m]
+
+// ENU → ECEF 변환
+mat_t *xyz = Enu2Xyz(enu, origin);
+if (xyz) {
+    printf("ENU 좌표: E=%.1f, N=%.1f, U=%.1f [m]\n",
+           MatGetD(enu, 0, 0), MatGetD(enu, 0, 1), MatGetD(enu, 0, 2));
+    printf("ECEF 좌표: X=%.3f, Y=%.3f, Z=%.3f [m]\n",
+           MatGetD(xyz, 0, 0), MatGetD(xyz, 0, 1), MatGetD(xyz, 0, 2));
+
+    // 원점으로부터의 거리 확인
+    double dx = MatGetD(xyz, 0, 0) - MatGetD(origin, 0, 0);
+    double dy = MatGetD(xyz, 0, 1) - MatGetD(origin, 0, 1);
+    double dz = MatGetD(xyz, 0, 2) - MatGetD(origin, 0, 2);
+    double dist = sqrt(dx*dx + dy*dy + dz*dz);
+    printf("원점으로부터 거리: %.1f m\n", dist);
+
+    // 역변환으로 검증
+    mat_t *enu_back = Xyz2Enu(xyz, origin);
+    if (enu_back) {
+        printf("역변환 검증: E=%.1f, N=%.1f, U=%.1f [m]\n",
+               MatGetD(enu_back, 0, 0), MatGetD(enu_back, 0, 1), MatGetD(enu_back, 0, 2));
+        FreeMat(enu_back);
+    }
+}
+
+FreeMat(origin); FreeMat(enu); FreeMat(xyz);
+```
+
 </details>
 
-##### ● SatAzEl() - 위성 방위각/고도각 계산
+#### 5.5.6 SatAzEl() - 위성 방위각/고도각 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -949,9 +1470,42 @@ $$\mathbf{R} = \begin{bmatrix}
 - 방위각: `atan2(E, N)` → 0~2π 범위 정규화
 - 고도각: `atan2(U, sqrt(E²+N²))` → -π/2~π/2 범위
 
+**사용 예시**:
+```c
+// 위성 위치 (ECEF)
+mat_t *sat_pos = Mat(1, 3, DOUBLE);
+MatSetD(sat_pos, 0, 0, 12611434.0);  // X [m]
+MatSetD(sat_pos, 0, 1, -13413103.0); // Y [m]
+MatSetD(sat_pos, 0, 2, 19062913.0);  // Z [m]
+
+// 수신기 위치 (ECEF)
+mat_t *rcv_pos = Mat(1, 3, DOUBLE);
+MatSetD(rcv_pos, 0, 0, -2694685.473); // X [m]
+MatSetD(rcv_pos, 0, 1, -4293642.366); // Y [m]
+MatSetD(rcv_pos, 0, 2, 3857878.924);  // Z [m]
+
+// 방위각/고도각 계산
+mat_t *azel = SatAzEl(sat_pos, rcv_pos);
+if (azel) {
+    double az_deg = MatGetD(azel, 0, 0) * R2D;  // 방위각 [도]
+    double el_deg = MatGetD(azel, 0, 1) * R2D;  // 고도각 [도]
+
+    printf("위성 방위각: %.1f°, 고도각: %.1f°\n", az_deg, el_deg);
+
+    // 고도각 마스크 확인
+    if (el_deg > 15.0) {
+        printf("위성이 가시 범위에 있습니다.\n");
+    } else {
+        printf("위성이 고도각 마스크 아래에 있습니다.\n");
+    }
+}
+
+FreeMat(sat_pos); FreeMat(rcv_pos); FreeMat(azel);
+```
+
 </details>
 
-##### ● GeoDist() - 기하거리 + Sagnac 보정
+#### 5.5.7 GeoDist() - 기하거리 + Sagnac 보정
 <details>
 <summary>상세 설명</summary>
 
@@ -983,11 +1537,53 @@ $$\boldsymbol{e} = \frac{\boldsymbol{r}^s - \boldsymbol{r}_r}{|\boldsymbol{r}^s 
 - Sagnac 효과 보정 적용
 - 선택적 단위벡터 계산
 
+**사용 예시**:
+```c
+// 위성 위치 (ECEF)
+mat_t *sat_pos = Mat(1, 3, DOUBLE);
+MatSetD(sat_pos, 0, 0, 12611434.0);   // X [m]
+MatSetD(sat_pos, 0, 1, -13413103.0);  // Y [m]
+MatSetD(sat_pos, 0, 2, 19062913.0);   // Z [m]
+
+// 수신기 위치 (ECEF)
+mat_t *rcv_pos = Mat(1, 3, DOUBLE);
+MatSetD(rcv_pos, 0, 0, -2694685.473); // X [m]
+MatSetD(rcv_pos, 0, 1, -4293642.366); // Y [m]
+MatSetD(rcv_pos, 0, 2,  3857878.924); // Z [m]
+
+// 시선벡터 저장용
+mat_t *los_vector = Mat(1, 3, DOUBLE);
+
+// 기하거리 + Sagnac 보정 계산
+double range = GeoDist(sat_pos, rcv_pos, los_vector);
+if (range > 0.0) {
+    printf("보정된 거리: %.3f km\n", range / 1000.0);
+
+    // 시선벡터 확인 (단위벡터)
+    double ex = MatGetD(los_vector, 0, 0);
+    double ey = MatGetD(los_vector, 0, 1);
+    double ez = MatGetD(los_vector, 0, 2);
+    double norm = sqrt(ex*ex + ey*ey + ez*ez);
+    printf("시선벡터: [%.6f, %.6f, %.6f] (크기: %.6f)\n", ex, ey, ez, norm);
+
+    // 유클리드 거리와 비교
+    double dx = MatGetD(sat_pos, 0, 0) - MatGetD(rcv_pos, 0, 0);
+    double dy = MatGetD(sat_pos, 0, 1) - MatGetD(rcv_pos, 0, 1);
+    double dz = MatGetD(sat_pos, 0, 2) - MatGetD(rcv_pos, 0, 2);
+    double euclidean = sqrt(dx*dx + dy*dy + dz*dz);
+
+    printf("유클리드 거리: %.3f km\n", euclidean / 1000.0);
+    printf("Sagnac 보정: %.3f m\n", range - euclidean);
+}
+
+FreeMat(sat_pos); FreeMat(rcv_pos); FreeMat(los_vector);
+```
+
 </details>
 
-#### ◆ GNSS 분석 함수
+### 5.6 GNSS 분석 함수
 
-##### ● Dops() - DOP 값 계산
+#### 5.6.1 Dops() - DOP 값 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -1024,11 +1620,58 @@ DOP 값들:
 - Lsq 함수로 공분산 행렬 Q 계산
 - Q의 대각선 원소들로 DOP 값들 직접 계산
 
+**사용 예시**:
+```c
+// 8개 위성의 방위각/고도각 데이터 (예시)
+mat_t *azels = Mat(8, 2, DOUBLE);
+double azel_data[][2] = {
+    {45.0 * D2R, 30.0 * D2R},   // 위성 1: 방위각 45°, 고도각 30°
+    {135.0 * D2R, 45.0 * D2R},  // 위성 2: 방위각 135°, 고도각 45°
+    {225.0 * D2R, 60.0 * D2R},  // 위성 3: 방위각 225°, 고도각 60°
+    {315.0 * D2R, 35.0 * D2R},  // 위성 4: 방위각 315°, 고도각 35°
+    {90.0 * D2R, 75.0 * D2R},   // 위성 5: 방위각 90°, 고도각 75°
+    {180.0 * D2R, 25.0 * D2R},  // 위성 6: 방위각 180°, 고도각 25°
+    {270.0 * D2R, 40.0 * D2R},  // 위성 7: 방위각 270°, 고도각 40°
+    {0.0 * D2R, 85.0 * D2R}     // 위성 8: 방위각 0°, 고도각 85°
+};
+
+for (int i = 0; i < 8; i++) {
+    MatSetD(azels, i, 0, azel_data[i][0]);  // 방위각 [rad]
+    MatSetD(azels, i, 1, azel_data[i][1]);  // 고도각 [rad]
+}
+
+// DOP 계산 (고도각 마스크 15도)
+double elmask = 15.0 * D2R;
+mat_t *dops = Dops(azels, elmask);
+if (dops) {
+    double gdop = MatGetD(dops, 0, 0);  // GDOP
+    double pdop = MatGetD(dops, 0, 1);  // PDOP
+    double hdop = MatGetD(dops, 0, 2);  // HDOP
+    double vdop = MatGetD(dops, 0, 3);  // VDOP
+    double tdop = MatGetD(dops, 0, 4);  // TDOP
+
+    printf("DOP 값들:\n");
+    printf("  GDOP: %.2f (기하학적 정밀도)\n", gdop);
+    printf("  PDOP: %.2f (위치 정밀도)\n", pdop);
+    printf("  HDOP: %.2f (수평 정밀도)\n", hdop);
+    printf("  VDOP: %.2f (수직 정밀도)\n", vdop);
+    printf("  TDOP: %.2f (시간 정밀도)\n", tdop);
+
+    // DOP 품질 평가
+    if (hdop < 1.0) printf("수평 정밀도: 우수\n");
+    else if (hdop < 2.0) printf("수평 정밀도: 양호\n");
+    else if (hdop < 5.0) printf("수평 정밀도: 보통\n");
+    else printf("수평 정밀도: 불량\n");
+}
+
+FreeMat(azels); FreeMat(dops);
+```
+
 </details>
 
-#### ◆ 인라인 유틸리티 함수
+### 5.7 인라인 유틸리티 함수
 
-##### ● SQR() - 제곱 계산
+#### 5.7.1 SQR() - 제곱 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -1042,9 +1685,32 @@ DOP 값들:
 
 **함수 로직**: 단순 곱셈 연산 (x * x)
 
+**사용 예시**:
+```c
+// 기본 제곱 계산
+double x = 5.0;
+double x_squared = SQR(x);
+printf("%.1f의 제곱: %.1f\n", x, x_squared);
+
+// 거리 계산에서 활용
+double dx = 100.0, dy = 200.0, dz = 50.0;
+double distance = sqrt(SQR(dx) + SQR(dy) + SQR(dz));
+printf("3차원 거리: %.1f m\n", distance);
+
+// 분산 계산에서 활용
+double values[] = {1.0, 2.0, 3.0, 4.0, 5.0};
+double mean = 3.0;
+double variance = 0.0;
+for (int i = 0; i < 5; i++) {
+    variance += SQR(values[i] - mean);
+}
+variance /= 5.0;
+printf("분산: %.2f\n", variance);
+```
+
 </details>
 
-##### ● Sys2Str() - 시스템 인덱스를 문자로 변환
+#### 5.7.2 Sys2Str() - 시스템 인덱스를 문자로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1060,9 +1726,36 @@ DOP 값들:
 1. 활성화된 시스템별로 순차 확인
 2. 해당 인덱스에 맞는 시스템 문자 반환
 
+**사용 예시**:
+```c
+// 모든 시스템 인덱스를 문자로 변환
+printf("GNSS 시스템 매핑:\n");
+for (int sys = 1; sys <= NSYS; sys++) {
+    char sys_char = Sys2Str(sys);
+    if (sys_char != '\0') {
+        printf("시스템 %d → '%c'\n", sys, sys_char);
+    }
+}
+
+// 위성 문자열 생성에서 활용
+int sys = 1;  // GPS
+int prn = 5;
+char sys_char = Sys2Str(sys);
+if (sys_char != '\0') {
+    printf("위성 문자열: %c%02d\n", sys_char, prn);  // "G05"
+}
+
+// 오류 처리 예시
+int invalid_sys = 99;
+char result = Sys2Str(invalid_sys);
+if (result == '\0') {
+    printf("잘못된 시스템 인덱스: %d\n", invalid_sys);
+}
+```
+
 </details>
 
-##### ● Str2Sys() - 문자를 시스템 인덱스로 변환
+#### 5.7.3 Str2Sys() - 문자를 시스템 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1078,13 +1771,44 @@ DOP 값들:
 1. 입력 문자와 시스템 문자 매칭
 2. 활성화된 시스템만 고려하여 인덱스 반환
 
+**사용 예시**:
+```c
+// 모든 시스템 문자를 인덱스로 변환
+char sys_chars[] = {'G', 'R', 'E', 'C', 'J', 'I', 'S'};
+char *sys_names[] = {"GPS", "GLONASS", "Galileo", "BeiDou", "QZSS", "IRNSS", "SBAS"};
+
+printf("GNSS 시스템 변환:\n");
+for (int i = 0; i < 7; i++) {
+    int sys_idx = Str2Sys(sys_chars[i]);
+    if (sys_idx > 0) {
+        printf("'%c' (%s) → 시스템 인덱스 %d\n", sys_chars[i], sys_names[i], sys_idx);
+    } else {
+        printf("'%c' (%s) → 비활성화 또는 오류\n", sys_chars[i], sys_names[i]);
+    }
+}
+
+// 위성 문자열 파싱에서 활용
+char sat_str[] = "G05";
+int sys = Str2Sys(sat_str[0]);  // 첫 번째 문자에서 시스템 추출
+if (sys > 0) {
+    int prn = atoi(&sat_str[1]);  // 나머지 문자에서 PRN 추출
+    printf("위성 문자열 '%s' → 시스템: %d, PRN: %d\n", sat_str, sys, prn);
+}
+
+// 역변환으로 검증
+char test_char = 'G';
+int sys_idx = Str2Sys(test_char);
+char char_back = Sys2Str(sys_idx);
+printf("변환 검증: '%c' → %d → '%c'\n", test_char, sys_idx, char_back);
+```
+
 </details>
 
 ---
 
-## ▲ 사용 예시
+## 6. 사용 예시
 
-### ◆ 위성 인덱스 변환
+### 6.1 위성 인덱스 변환
 ```c
 // PRN을 위성 인덱스로 변환
 int gps_sat = Prn2Sat(1, 5);       // GPS PRN 5 → 위성 인덱스
@@ -1103,7 +1827,7 @@ printf("GPS PRN 5 위성 인덱스: %d\n", gps_sat);
 printf("위성 문자열: %s\n", str.str);
 ```
 
-### ◆ 시간 변환
+### 6.2 시간 변환
 ```c
 // 현재 시간 조회
 double current_time = TimeGet();
@@ -1125,7 +1849,7 @@ printf("GPS 주차 %d, 주내초 %.1f → UNIX Time: %.3f\n",
        gps_week, tow, gps_time);
 ```
 
-### ◆ 문자열 시간 처리
+### 6.3 문자열 시간 처리
 ```c
 // 문자열을 달력으로 변환
 calStr_t time_str = {"2024/12/25 15:30:45.123"};
@@ -1141,7 +1865,7 @@ int doy = Time2Doy(time);
 printf("2024년 12월 25일은 연중 %d일째입니다.\n", doy);
 ```
 
-### ◆ GLONASS FCN 관리
+### 6.4 GLONASS FCN 관리
 ```c
 // GLONASS FCN 설정
 SetFcn(1, -7);  // GLONASS PRN 1에 FCN -7 설정
@@ -1158,7 +1882,7 @@ SetDefaultFcn();
 printf("모든 GLONASS 위성에 기본 FCN 설정 완료\n");
 ```
 
-### ◆ 네비게이션 구조체 관리
+### 6.5 네비게이션 구조체 관리
 ```c
 // 네비게이션 구조체 초기화
 nav_t nav;
@@ -1172,7 +1896,7 @@ FreeNav(&nav);
 printf("네비게이션 구조체 메모리 해제 완료\n");
 ```
 
-### ◆ 시간 체계 간 변환
+### 6.6 시간 체계 간 변환
 ```c
 // GPS Time ↔ UTC 변환 (윤초 적용)
 double gps_time = TimeGet();
@@ -1191,7 +1915,7 @@ printf("BeiDou Time: %.3f\n", bdt_time);
 printf("차이: %.1f초\n", gps_time - bdt_time);
 ```
 
-### ◆ GNSS 좌표 변환
+### 6.7 GNSS 좌표 변환
 ```c
 // ECEF → 지리좌표 변환
 mat_t *xyz = Mat(1, 3, DOUBLE);
@@ -1215,7 +1939,7 @@ mat_t *xyz_back = Llh2Xyz(llh);
 FreeMat(xyz); FreeMat(llh); FreeMat(xyz_back);
 ```
 
-### ◆ ENU 지역좌표 변환
+### 6.8 ENU 지역좌표 변환
 ```c
 // 수신기 위치 (원점)
 mat_t *origin = Mat(1, 3, DOUBLE);
@@ -1239,7 +1963,7 @@ if (enu) {
 FreeMat(origin); FreeMat(sat_pos); FreeMat(enu);
 ```
 
-### ◆ 위성 방위각/고도각 계산
+### 6.9 위성 방위각/고도각 계산
 ```c
 // 위성-수신기 방위각/고도각 계산
 mat_t *azel = SatAzEl(sat_pos, origin);
@@ -1258,7 +1982,7 @@ printf("보정된 거리: %.3f km\n", range / 1000.0);
 FreeMat(azel); FreeMat(los_vector);
 ```
 
-### ◆ DOP 값 계산
+### 6.10 DOP 값 계산
 ```c
 // 다수 위성의 방위각/고도각 (예: 8개 위성)
 mat_t *azels = Mat(8, 2, DOUBLE);
@@ -1284,30 +2008,30 @@ FreeMat(azels); FreeMat(dops);
 
 ---
 
-## ▲ 성능 특성
+## 7. 성능 특성
 
-### ◆ 메모리 효율성
+### 7.1 메모리 효율성
 - **정적 테이블**: 윤초, FCN, 시스템 베이스 인덱스 등을 정적 배열로 관리
 - **구조체 최적화**: 필요한 데이터만 포함하도록 구조체 설계
 - **동적 할당 최소화**: 필수적인 경우만 동적 메모리 사용
 
-### ◆ 연산 성능
+### 7.2 연산 성능
 - **O(1) 위성 변환**: 베이스 인덱스 테이블을 통한 직접 계산
 - **O(1) 시간 변환**: 수학적 공식 기반 직접 변환
 - **O(log n) 윤초 검색**: 이분 탐색으로 윤초 테이블 검색 최적화
 - **인라인 함수**: 자주 사용되는 함수들을 인라인으로 성능 향상
 
-### ◆ 정확도 보장
+### 7.3 정확도 보장
 - **윤초 정확성**: 최신 윤초 테이블 유지로 GPS/UTC 변환 정확성
 - **FCN 관리**: GLONASS 주파수 정확성을 위한 FCN 완전 지원
 - **시간 정밀도**: double 타입으로 마이크로초 수준 정밀도 제공
 
-### ◆ 플랫폼 호환성
+### 7.4 플랫폼 호환성
 - **조건부 컴파일**: Windows와 Unix/Linux 플랫폼 자동 지원
 - **표준 라이브러리**: C 표준 함수만 사용하여 이식성 보장
 - **크로스 플랫폼**: 동일한 코드로 다양한 플랫폼 지원
 
-### ◆ 확장성 및 유지보수성
+### 7.5 확장성 및 유지보수성
 - **모듈화 설계**: 기능별 함수 그룹화로 유지보수 용이
 - **상수 기반**: 시스템별 상수 정의로 새 시스템 추가 간편
 - **에러 처리**: 모든 함수에서 입력 검증 및 안전한 실패 처리
@@ -1315,4 +2039,4 @@ FreeMat(azels); FreeMat(dops);
 
 ---
 
-**■ 이 모듈은 GNSS 라이브러리의 핵심 기반 기능을 제공하는 필수 모듈입니다.**
+**이 모듈은 GNSS 라이브러리의 핵심 기반 기능을 제공하는 필수 모듈입니다.**

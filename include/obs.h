@@ -52,6 +52,56 @@ typedef struct {
 } codeStr_t;
 
 // =============================================================================
+// Observation data structure functions
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Initialize observation data set structure
+//
+// args:
+//        obss_t *obss (I,O) : observation data set structure
+//
+// return:
+//        void         (-)   : no return value
+// -----------------------------------------------------------------------------
+void InitObss(obss_t *obss);
+
+// -----------------------------------------------------------------------------
+// Free observation data set structure
+//
+// args:
+//        obss_t *obss (I) : observation data set structure
+//
+// return:
+//        void         (-) : no return value
+// -----------------------------------------------------------------------------
+void FreeObss(obss_t *obss);
+
+// -----------------------------------------------------------------------------
+// Add observation data to observation data set
+//
+// args:
+//        obss_t *obss (I,O) : observation data set structure
+//  const obs_t  *obs  (I)   : observation data to add
+//
+// return:
+//        int    info  (O)   : 1 if successful, 0 if failed
+// -----------------------------------------------------------------------------
+int AddObs(obss_t *obss, const obs_t *obs);
+
+// -----------------------------------------------------------------------------
+// Sort observation data set by the order of time, receiver index, satellite
+// index
+//
+// args:
+//        obss_t *obss (I,O) : observation data set structure
+//
+// return:
+//        void         (-)   : no return value
+// -----------------------------------------------------------------------------
+void SortObss(obss_t *obss);
+
+// =============================================================================
 // Observation code conversion functions
 // =============================================================================
 

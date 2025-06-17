@@ -69,7 +69,7 @@ typedef struct nav {                    // Struct of navigation data
     //dcbs_t    dcbs[NSAT];               // DCB data (TBD)
     pcvs_t    pcvs;                     // Satellite and receiver antenna PCO and PCV parameters
     sta_t     sta[NRCV];                // Receiver station parameters
-    int       iono[NSYS][8];            // Broadcast ionosphere model parameters
+    double    iono[NSYS][8];            // Broadcast ionosphere model parameters
     opt_t     *opt;                     // Processing options
 } nav_t;
 

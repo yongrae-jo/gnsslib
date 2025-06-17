@@ -6,9 +6,10 @@
 // =============================================================================
 
 #include "obs.h"
-#include <string.h>     // for strcmp, strncpy, strchr
 #include "common.h"     // for GetFcn, Sat2Prn, Sys2Str, Str2Sys
 #include "ephemeris.h"  // for GetEphType
+#include <string.h>     // for strcmp, strncpy, strchr
+#include <stdlib.h>     // for qsort
 
 // =============================================================================
 // Static type definitions
@@ -653,6 +654,120 @@ static int Code2Fidx_SBS(int code)
     return 0;
 }
 
+// Resize observation data set structure
+static int ResizeObss(obss_t *obss, int nnew)
+{
+    // Check if the observation data set structure is valid
+    if (!obss || nnew <= 0) return 0;
+
+    obs_t *newObs = (obs_t *)realloc(obss->obs, nnew * sizeof(obs_t));
+    if (!newObs) return 0;
+
+    obss->obs = newObs;
+    obss->nmax = nnew;
+
+    return 1;
+}
+
+// Compare observation data by time, receiver index, satellite index
+static int CompareObs(const void *a, const void *b)
+{
+    const obs_t *obs1 = (const obs_t *)a;
+    const obs_t *obs2 = (const obs_t *)b;
+
+    // Time difference
+    double dt = obs1->time - obs2->time;
+    if (fabs(dt) > 1e-9) return (dt > 0.0) ? 1 : -1;
+
+    // Receiver index
+    if (obs1->rcv != obs2->rcv) return obs1->rcv - obs2->rcv;
+
+    // Satellite index
+    return obs1->sat - obs2->sat;
+}
+
+// =============================================================================
+// Observation data structure functions
+// =============================================================================
+
+// Initialize observation data set structure
+void InitObss(obss_t *obss)
+{
+    // Check if the observation data set structure is valid
+    if (!obss) return;
+
+    // Initialize the observation data set structure
+    obss->n = 0;
+    obss->nmax = 0;
+    obss->obs = NULL;
+}
+
+// Free observation data set structure
+void FreeObss(obss_t *obss)
+{
+    // Check if the observation data set structure is valid
+    if (!obss) return;
+
+    // Free the observation data set structure
+    if (obss->obs) {
+        free(obss->obs);
+        obss->obs = NULL;
+    }
+    obss->n = obss->nmax = 0;
+}
+
+// Add observation data to observation data set
+int AddObs(obss_t *obss, const obs_t *obs)
+{
+    // Check if the observation data set structure is valid
+    if (!obss || !obs) return 0;
+
+    // Check if the observation data set is full
+    if (obss->n >= obss->nmax) {
+        int nnew = (obss->nmax == 0) ? 2 : obss->nmax * 2;
+        if (!ResizeObss(obss, nnew)) return 0;
+    }
+
+    // Add the observation data to the observation data set
+    obss->obs[obss->n] = *obs;
+    obss->n++;
+
+    return 1;
+}
+
+// Sort observation data set by the order of time, receiver index, satellite index
+void SortObss(obss_t *obss)
+{
+    // Check if the observation data set structure is valid
+    if (!obss || obss->n == 0) return;
+
+    // Sort the observation data set by the order of time, receiver index, satellite index
+    qsort(obss->obs, obss->n, sizeof(obs_t), CompareObs);
+
+    // Delete duplicate observation data
+    int n = 0;
+    for (int i = 0; i < obss->n; i++) {
+
+        // Check if the observation data is the same as previous one
+        if (i > 0 &&
+            obss->obs[i].time == obss->obs[i-1].time &&
+            obss->obs[i].rcv  == obss->obs[i-1].rcv  &&
+            obss->obs[i].sat  == obss->obs[i-1].sat) {
+            continue;  // Skip duplicate
+        }
+
+        // Copy the observation data to the next position
+        if (n != i) {
+            obss->obs[n] = obss->obs[i];
+        }
+        n++;
+    }
+
+    // Update the number of observation data
+    obss->n = n;
+}
+
+
 // =============================================================================
 // Observation code conversion functions
 // =============================================================================
@@ -685,11 +800,8 @@ int Code2Band(int code)
     // Check if the observation code index is valid
     if (code <= 0 || code > NCODE) return 0;
 
-    // Get the observation code string
-    codeStr_t codeStr = Code2Str(code);
-
     // Get the frequency band index
-    return Str2Band(codeStr.str[1]);
+    return Str2Band(OBSCODES[code][1]);
 }
 
 // Convert observation code index with satellite index to carrier-frequency

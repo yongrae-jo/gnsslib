@@ -172,8 +172,18 @@ extern "C" {
 #define ERR_FACTOR_IRN  1.5                     // Error factor: IRN
 #define ERR_FACTOR_SBS  3.0                     // Error factor: SBS
 
+#define STD_EPH_GLO     5.0                     // Standard deviation of GLONASS broadcast ephemeris and clock [m]
+#define STD_IONO        5.0                     // Standard deviation of ionospheric delay [m]
+#define STD_TROP        5.0                     // Standard deviation of tropospheric delay [m]
+#define STD_TGD_CORR    0.3                     // Standard deviation of TGD correction [m]
+#define STD_SAAS        0.3                     // Standard deviation of Saastamoinen model [m]
+#define STD_KLOB_FACTOR 0.5                     // Factor of standard deviation of Klobuchar model
+
 #define MAX_ITER_KEPLER 30                      // Maximum number of iterations for Kepler equation
 #define MAX_ITER_LSQ    10                      // Maximum number of iterations for least square estimation
+
+#define MAX_ERR_EPH     300.0                   // Maximum error of broadcast ephemeris
+#define MAX_ERR_GAL     500.0                   // Maximum error of Galileo broadcast ephemeris
 
 // =============================================================================
 // End of header
