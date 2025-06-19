@@ -240,7 +240,7 @@ obs 모듈 함수 계층
 
 ### 5.1 관측 데이터 구조체 관리 함수
 
-#### 5.1.1 InitObss() - 관측 데이터셋 초기화
+#### InitObss() - 관측 데이터셋 초기화
 <details>
 <summary>상세 설명</summary>
 
@@ -269,7 +269,7 @@ InitObss(&obsSet);
 
 </details>
 
-#### 5.1.2 FreeObss() - 메모리 해제
+#### FreeObss() - 메모리 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -302,7 +302,7 @@ FreeObss(&obsSet);            // 메모리 안전 해제
 
 </details>
 
-#### 5.1.3 AddObs() - 관측 데이터 추가
+#### AddObs() - 관측 데이터 추가
 <details>
 <summary>상세 설명</summary>
 
@@ -350,7 +350,7 @@ if (AddObs(&obsSet, &newObs)) {
 
 </details>
 
-#### 5.1.4 SortObss() - 정렬 및 중복 제거
+#### SortObss() - 정렬 및 중복 제거
 <details>
 <summary>상세 설명</summary>
 
@@ -411,7 +411,7 @@ printf("정렬 후: %d개\n", obsSet.n);            // "정렬 후: 2개"
 
 ### 5.2 관측 코드 변환 함수
 
-#### 5.2.1 Str2Code() - 문자열→코드ID
+#### Str2Code() - 문자열→코드ID
 <details>
 <summary>상세 설명</summary>
 
@@ -447,7 +447,7 @@ int code3 = Str2Code(invalid);  // 오류: 0 반환
 
 </details>
 
-#### 5.2.2 Code2Str() - 코드ID→문자열
+#### Code2Str() - 코드ID→문자열
 <details>
 <summary>상세 설명</summary>
 
@@ -487,7 +487,7 @@ if (strlen(codeStr.str) > 0) {
 
 </details>
 
-#### 5.2.3 Code2Band() - 코드ID→밴드ID
+#### Code2Band() - 코드ID→밴드ID
 <details>
 <summary>상세 설명</summary>
 
@@ -522,7 +522,7 @@ printf("L5I 밴드: %d\n", band5);               // "L5I 밴드: 5"
 
 </details>
 
-#### 5.2.4 Code2Freq() - 위성+코드ID→주파수
+#### Code2Freq() - 위성+코드ID→주파수
 <details>
 <summary>상세 설명</summary>
 
@@ -564,7 +564,7 @@ printf("GPS L1C 주파수: %.0f Hz\n", l1_freq);
 
 </details>
 
-#### 5.2.5 Code2Fidx() - 시스템+코드ID→주파수인덱스
+#### Code2Fidx() - 시스템+코드ID→주파수인덱스
 <details>
 <summary>상세 설명</summary>
 
@@ -607,7 +607,7 @@ printf("GPS L5I 인덱스: %d\n", gps_fidx);
 
 ### 5.3 밴드 관리 함수
 
-#### 5.3.1 Band2Str() - 밴드ID→밴드문자
+#### Band2Str() - 밴드ID→밴드문자
 <details>
 <summary>상세 설명</summary>
 
@@ -634,7 +634,7 @@ char invalid = Band2Str(0);                   // '\0' (오류)
 
 </details>
 
-#### 5.3.2 Str2Band() - 밴드문자→밴드ID
+#### Str2Band() - 밴드문자→밴드ID
 <details>
 <summary>상세 설명</summary>
 
@@ -661,7 +661,7 @@ int invalid = Str2Band('A');                  // 0 (오류)
 
 </details>
 
-#### 5.3.3 Band2Freq() - 위성+밴드ID→주파수
+#### Band2Freq() - 위성+밴드ID→주파수
 <details>
 <summary>상세 설명</summary>
 
@@ -712,7 +712,7 @@ printf("GLONASS L1: %.0f Hz\n", glo_l1);       // FCN에 따라 가변
 
 </details>
 
-#### 5.3.4 Fidx2Band() - 시스템+인덱스→밴드ID
+#### Fidx2Band() - 시스템+인덱스→밴드ID
 <details>
 <summary>상세 설명</summary>
 

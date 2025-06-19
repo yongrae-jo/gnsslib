@@ -309,7 +309,7 @@ common 모듈 함수 계층
 
 ### 5.1 초기화 및 메모리 관리 함수
 
-#### 5.1.1 InitNav() - 네비게이션 구조체 초기화
+#### InitNav() - 네비게이션 구조체 초기화
 <details>
 <summary>상세 설명</summary>
 
@@ -341,7 +341,7 @@ FreeNav(&nav);
 
 </details>
 
-#### 5.1.2 FreeNav() - 네비게이션 구조체 메모리 해제
+#### FreeNav() - 네비게이션 구조체 메모리 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -375,7 +375,7 @@ printf("네비게이션 구조체 메모리 해제 완료\n");
 
 ### 5.2 GLONASS FCN 관리 함수
 
-#### 5.2.1 GetFcn() - GLONASS FCN 조회
+#### GetFcn() - GLONASS FCN 조회
 <details>
 <summary>상세 설명</summary>
 
@@ -406,7 +406,7 @@ if (GetFcn(1, &fcn)) {
 
 </details>
 
-#### 5.2.2 SetFcn() - GLONASS FCN 설정
+#### SetFcn() - GLONASS FCN 설정
 <details>
 <summary>상세 설명</summary>
 
@@ -438,7 +438,7 @@ printf("GLONASS FCN 설정 완료\n");
 
 </details>
 
-#### 5.2.3 SetDefaultFcn() - 기본 FCN 설정
+#### SetDefaultFcn() - 기본 FCN 설정
 <details>
 <summary>상세 설명</summary>
 
@@ -474,7 +474,7 @@ for (int prn = 1; prn <= 24; prn++) {
 
 ### 5.3 위성 인덱스 변환 함수
 
-#### 5.3.1 Prn2Sat() - PRN을 위성 인덱스로 변환
+#### Prn2Sat() - PRN을 위성 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -512,7 +512,7 @@ if (invalid_sat == 0) {
 
 </details>
 
-#### 5.3.2 Sat2Prn() - 위성 인덱스를 PRN으로 변환
+#### Sat2Prn() - 위성 인덱스를 PRN으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -556,7 +556,7 @@ for (int i = 0; i < 4; i++) {
 
 </details>
 
-#### 5.3.3 Str2Sat() - 위성 문자열을 위성 인덱스로 변환
+#### Str2Sat() - 위성 문자열을 위성 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -597,7 +597,7 @@ for (int i = 0; i < 7; i++) {
 
 </details>
 
-#### 5.3.4 Sat2Str() - 위성 인덱스를 위성 문자열로 변환
+#### Sat2Str() - 위성 인덱스를 위성 문자열로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -642,7 +642,7 @@ if (original_sat == converted_sat) {
 
 ### 5.4 시간 변환 함수
 
-#### 5.4.1 Cal2Time() - 달력을 UNIX Time으로 변환
+#### Cal2Time() - 달력을 UNIX Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -655,10 +655,12 @@ if (original_sat == converted_sat) {
 - `double`: UNIX Timestamp (초), 오류 시 $0.0$
 
 **함수 로직**:
-1. 달력 유효성 검사 (년, 월, 일, 시, 분, 초 범위)
+1. 달력 유효성 검사 (년: 1970~2199, 월, 일, 시, 분, 초 범위)
 2. 1970년 1월 1일부터의 일수 계산
-3. 윤년 보정 및 월별 일수 누적
+3. 윤년 보정 (4년, 100년, 400년 규칙 적용) 및 월별 일수 누적
 4. 초 단위로 변환하여 반환
+
+**개선 사항 (2024)**: 유효 년도 범위를 2099년에서 2199년으로 확장하여 미래 GNSS 데이터 처리 대비
 
 **사용 예시**:
 ```c
@@ -682,23 +684,29 @@ printf("역변환: %04d/%02d/%02d %02d:%02d:%06.3f\n",
 
 </details>
 
-#### 5.4.2 Time2Cal() - UNIX Time을 달력으로 변환
+#### Time2Cal() - UNIX Time을 달력으로 변환
 <details>
 <summary>상세 설명</summary>
 
 **목적**: UNIX Timestamp를 달력 형태로 변환
 
 **입력**:
-- `double time`: UNIX Timestamp (초)
+- `double time`: UNIX Timestamp (초, 0.0 이상)
 
 **출력**:
 - `cal_t`: 달력 시간 구조체
 
 **함수 로직**:
 1. 총 일수와 당일 초 분리
-2. 1970년부터 순차적으로 년/월/일 계산
-3. 윤년 고려한 월별 일수 처리
-4. 당일 초를 시/분/초로 분해
+2. 1970년부터 연도별로 순차 계산 (while 루프 사용)
+3. 각 연도별 윤년 여부를 정확히 판단 (4년, 100년, 400년 규칙)
+4. 해당 연도의 월별 일수 배열을 사용하여 월/일 계산
+5. 당일 초를 시/분/초로 분해
+
+**알고리즘 개선 (2024)**:
+- 기존 4년 주기(1461일) 기반 계산에서 연도별 정확한 윤년 계산으로 변경
+- 2100년, 2200년 등 100년 단위 예외 윤년 규칙까지 완벽 처리
+- 정확성과 신뢰성이 대폭 향상됨
 
 **사용 예시**:
 ```c
@@ -720,7 +728,7 @@ printf("UNIX Time %.3f → %04d/%02d/%02d %02d:%02d:%06.3f\n",
 
 </details>
 
-#### 5.4.3 Gpst2Time() - GPS Time을 UNIX Time으로 변환
+#### Gpst2Time() - GPS Time을 UNIX Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -770,24 +778,27 @@ printf("역변환: GPS Week %d, tow %.1f\n", week_back, tow_back);
 
 </details>
 
-#### 5.4.4 Time2Gpst() - UNIX Time을 GPS Time으로 변환
+#### Time2Gpst() - UNIX Time을 GPS Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
 **목적**: GPST를 나타내는 UNIX Timestamp를 GPS Week와 tow로 변환
 
 **입력**:
-- `double time`: UNIX Time (초)
+- `double time`: UNIX Time (초, GPS 기준시간 이후)
 - `int *week`: GPS Week를 저장할 포인터
 
 **출력**:
-- `double`: 주내 초 (Time of Week)
+- `double`: 주내 초 (Time of Week), 유효하지 않은 입력 시 $0.0$
 
 **함수 로직**:
-1. UNIX Time에서 GPS 기준시간 차이 계산
-2. GPS Week 계산 (차이 / (7×24×3600))
-3. tow 계산 (차이 % (7×24×3600))
-4. GPS Week는 포인터에 저장, tow는 반환
+1. 입력 시간이 GPS 기준시간(1980/1/6) 이후인지 유효성 검사
+2. UNIX Time에서 GPS 기준시간 차이 계산
+3. GPS Week 계산 (차이 / (7×24×3600))
+4. tow 계산 (차이 % (7×24×3600))
+5. GPS Week는 포인터에 저장, tow는 반환
+
+**유효성 검사 개선 (2024)**: 기존 UNIX 시간 시작(1970/1/1) 검사에서 GPS 시간 시작(1980/1/6) 검사로 변경하여 함수 목적에 맞는 엄격한 검증 적용
 
 **사용 예시**:
 ```c
@@ -806,7 +817,7 @@ printf("역변환 검증: %.3f (차이: %.6f초)\n", unix_back, unix_time - unix
 
 </details>
 
-#### 5.4.5 Bdt2Time() - BeiDou Time을 UNIX Time으로 변환
+#### Bdt2Time() - BeiDou Time을 UNIX Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -826,7 +837,7 @@ printf("역변환 검증: %.3f (차이: %.6f초)\n", unix_back, unix_time - unix
 
 </details>
 
-#### 5.4.6 Time2Bdt() - UNIX Time을 BeiDou Time으로 변환
+#### Time2Bdt() - UNIX Time을 BeiDou Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -861,7 +872,7 @@ printf("역변환 검증: %.3f (차이: %.6f초)\n", unix_back, unix_time - unix
 
 </details>
 
-#### 5.4.7 TimeGet() - 현재 시간 조회 (GPST)
+#### TimeGet() - 현재 시간 조회 (GPST)
 <details>
 <summary>상세 설명</summary>
 
@@ -900,7 +911,7 @@ printf("처리 시간: %.3f초\n", end_time - start_time);
 
 </details>
 
-#### 5.4.8 Gpst2Utc() - GPS Time을 UTC로 변환
+#### Gpst2Utc() - GPS Time을 UTC로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -956,7 +967,7 @@ printf("UTC: %04d/%02d/%02d %02d:%02d:%06.3f\n",
 
 </details>
 
-#### 5.4.9 Utc2Gpst() - UTC를 GPS Time으로 변환
+#### Utc2Gpst() - UTC를 GPS Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -992,7 +1003,7 @@ printf("시스템 UTC %.3f → GPST: %.3f\n", system_utc, gpst_converted);
 
 </details>
 
-#### 5.4.10 Gpst2Bdt() - GPS Time을 BeiDou Time으로 변환
+#### Gpst2Bdt() - GPS Time을 BeiDou Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1029,7 +1040,7 @@ printf("BDS: BDS week %d, tow %.1f\n", bdt_week, bdt_tow);
 
 </details>
 
-#### 5.4.11 Bdt2Gpst() - BeiDou Time을 GPS Time으로 변환
+#### Bdt2Gpst() - BeiDou Time을 GPS Time으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1063,7 +1074,7 @@ printf("역변환 검증: %.3f (차이: %.6f초)\n", bdt_back, bdt_time - bdt_ba
 
 </details>
 
-#### 5.4.12 Time2Doy() - 시간을 연중 일자로 변환
+#### Time2Doy() - 시간을 연중 일자로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1108,7 +1119,7 @@ for (int i = 0; i < 3; i++) {
 
 </details>
 
-#### 5.4.13 Str2Cal() - 문자열을 달력으로 변환
+#### Str2Cal() - 문자열을 달력으로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1155,7 +1166,7 @@ for (int i = 0; i < 3; i++) {
 
 </details>
 
-#### 5.4.14 Cal2Str() - 달력을 문자열로 변환
+#### Cal2Str() - 달력을 문자열로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1201,7 +1212,7 @@ printf("역변환 검증: %.6f초 차이\n", current_gpst - time_back);
 
 ### 5.5 GNSS 좌표 변환 함수
 
-#### 5.5.1 Xyz2Llh() - ECEF → 지리좌표 변환
+#### Xyz2Llh() - ECEF → 지리좌표 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1242,7 +1253,7 @@ $$h = \sqrt{L^2 + p^2} - N$$
 
 </details>
 
-#### 5.5.2 Llh2Xyz() - 지리좌표 → ECEF 변환
+#### Llh2Xyz() - 지리좌표 → ECEF 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1302,7 +1313,7 @@ FreeMat(llh); FreeMat(xyz);
 
 </details>
 
-#### 5.5.3 Xyz2Rot() - 회전행렬 생성
+#### Xyz2Rot() - 회전행렬 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -1353,7 +1364,7 @@ FreeMat(xyz); FreeMat(rot);
 
 </details>
 
-#### 5.5.4 Xyz2Enu() - ECEF → ENU 변환
+#### Xyz2Enu() - ECEF → ENU 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1410,7 +1421,7 @@ FreeMat(origin); FreeMat(sat_pos); FreeMat(enu);
 
 </details>
 
-#### 5.5.5 Enu2Xyz() - ENU → ECEF 변환
+#### Enu2Xyz() - ENU → ECEF 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1471,7 +1482,7 @@ FreeMat(origin); FreeMat(enu); FreeMat(xyz);
 
 </details>
 
-#### 5.5.6 SatAzEl() - 위성 방위각/고도각 계산
+#### SatAzEl() - 위성 방위각/고도각 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -1540,7 +1551,7 @@ FreeMat(sat_pos); FreeMat(rcv_pos); FreeMat(azel);
 
 </details>
 
-#### 5.5.7 GeoDist() - 기하거리 + Sagnac 보정
+#### GeoDist() - 기하거리 + Sagnac 보정
 <details>
 <summary>상세 설명</summary>
 
@@ -1618,7 +1629,7 @@ FreeMat(sat_pos); FreeMat(rcv_pos); FreeMat(los_vector);
 
 ### 5.6 GNSS 분석 함수
 
-#### 5.6.1 Dops() - DOP 값 계산
+#### Dops() - DOP 값 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -1706,7 +1717,7 @@ FreeMat(azels); FreeMat(dops);
 
 ### 5.7 GNSS 보정 모델 함수
 
-#### 5.7.1 RcvAntModel() - 수신기 안테나 보정
+#### RcvAntModel() - 수신기 안테나 보정
 <details>
 <summary>상세 설명</summary>
 
@@ -1763,7 +1774,7 @@ FreeMat(azel); FreeMat(dant);
 
 </details>
 
-#### 5.7.2 TropoMapF() - 대류권 매핑함수
+#### TropoMapF() - 대류권 매핑함수
 <details>
 <summary>상세 설명</summary>
 
@@ -1827,7 +1838,7 @@ FreeMat(llh); FreeMat(azel); FreeMat(mapf);
 
 </details>
 
-#### 5.7.3 TropoModel() - 대류권 지연 모델
+#### TropoModel() - 대류권 지연 모델
 <details>
 <summary>상세 설명</summary>
 
@@ -1890,7 +1901,7 @@ FreeMat(tropo);
 
 </details>
 
-#### 5.7.4 IonoModel() - 전리층 지연 모델
+#### IonoModel() - 전리층 지연 모델
 <details>
 <summary>상세 설명</summary>
 
@@ -1968,7 +1979,7 @@ FreeMat(iono_param); FreeMat(iono);
 
 </details>
 
-#### 5.7.5 MeasVar() - 관측값 분산 계산
+#### MeasVar() - 관측값 분산 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -2035,7 +2046,7 @@ FreeMat(var);
 
 ### 5.8 인라인 유틸리티 함수
 
-#### 5.8.1 SQR() - 제곱 계산
+#### SQR() - 제곱 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -2074,7 +2085,7 @@ printf("분산: %.2f\n", variance);
 
 </details>
 
-#### 5.8.2 Sys2Str() - 시스템 인덱스를 문자로 변환
+#### Sys2Str() - 시스템 인덱스를 문자로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -2119,7 +2130,7 @@ if (result == '\0') {
 
 </details>
 
-#### 5.8.3 Str2Sys() - 문자를 시스템 인덱스로 변환
+#### Str2Sys() - 문자를 시스템 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 

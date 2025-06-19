@@ -464,7 +464,7 @@ satStr_t Sat2Str(int sat)
 double Cal2Time(cal_t cal)
 {
     // Check if the calendar date and time is valid
-    if (cal.year  < 1970 || cal.year  > 2099 ) return 0.0;
+    if (cal.year  < 1970 || cal.year  > 2199 ) return 0.0;
     if (cal.mon   < 1    || cal.mon   > 12   ) return 0.0;
     if (cal.day   < 1    || cal.day   > 31   ) return 0.0;
     if (cal.hour  < 0    || cal.hour  > 23   ) return 0.0;
@@ -490,38 +490,45 @@ double Cal2Time(cal_t cal)
 // Convert format of standard time to calendar date and time
 cal_t Time2Cal(double time)
 {
-    // Check if the standard time is valid
-    if (time <= 0.0) return (cal_t){0};
-
-    // 4-year cycle monthly days (normal year, normal year, normal year, leap year)
-    static const int mday[48] = {
-        31,28,31,30,31,30,31,31,30,31,30,31,  // Year 1 (normal year)
-        31,28,31,30,31,30,31,31,30,31,30,31,  // Year 2 (normal year)
-        31,28,31,30,31,30,31,31,30,31,30,31,  // Year 3 (normal year)
-        31,29,31,30,31,30,31,31,30,31,30,31   // Year 4 (leap year)
-    };
+    // Check if the standard time is valid (allow Unix epoch 0.0)
+    if (time < 0.0) return (cal_t){0};
 
     // Calculate the total days and the seconds in a day
     int totalDays = (int)(time / 86400.0);
     double daySec = time - (double)totalDays * 86400.0;
 
-    // Calculate the day in the 4-year cycle
-    int dayInCycle = totalDays % 1461;
+    // Start from Unix epoch (1970/1/1)
+    int year = 1970;
+    int remainingDays = totalDays;
 
-    // Find the month (4 years = 48 months)
-    int mon;
-    for (mon = 0; mon < 48; mon++) {
-        if (dayInCycle >= mday[mon]) {
-            dayInCycle -= mday[mon];
+    // Find the year
+    while (1) {
+        int leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+        int daysInYear = leap ? 366 : 365;
+
+        if (remainingDays >= daysInYear) {
+            remainingDays -= daysInYear;
+            year++;
         } else {
             break;
         }
     }
 
-    // Calculate the year, month, and day
-    int year = 1970 + (totalDays / 1461) * 4 + (mon / 12);
-    int month = (mon % 12) + 1;
-    int day = dayInCycle + 1;
+    // Days in each month for current year
+    int leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    int mdays[] = {31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    // Find the month and day
+    int month = 1;
+    for (int i = 0; i < 12; i++) {
+        if (remainingDays >= mdays[i]) {
+            remainingDays -= mdays[i];
+            month++;
+        } else {
+            break;
+        }
+    }
+    int day = remainingDays + 1;
 
     // Calculate the hour, minute, and second
     int hour = (int)(daySec / 3600.0);
@@ -543,8 +550,8 @@ double Gpst2Time(int week, double tow)
 // Convert standard time to week and tow in GPS time
 double Time2Gpst(double time, int *week)
 {
-    // Check if the standard time is valid
-    if (time <= Cal2Time(UNIX0)) return -1.0;
+    // Check if the standard time is valid (must be after GPS epoch)
+    if (time < Cal2Time(GPST0)) return -1.0;
 
     double t0  = Cal2Time(GPST0);
     double sec = time - t0;

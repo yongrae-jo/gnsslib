@@ -12,8 +12,9 @@
 
 // GNSS library
 #include "files.h"
-#include "rinex.h"                      // for IsRinexObs, ReadRnxObs
+#include "rinex.h"                      // for IsRinexObs, ReadRnxObs, ReadRnxNav
 #include "obs.h"                        // for SortObss
+#include "ephemeris.h"                  // for SortEphs
 
 // =============================================================================
 // Macros
@@ -309,7 +310,9 @@ void ReadObsFiles(files_t *files, nav_t *nav, obss_t *obs)
 
     // Remove duplicated data and sort observation data by time, receiver index,
     // and satellite index in ascending order
-    SortObss(obs);
+    if (obs->n > 1) {
+        SortObss(obs);
+    }
 }
 
 // Read navigation data files
@@ -340,7 +343,9 @@ void ReadNavFiles(files_t *files, nav_t *nav)
 
     // Remove duplicated data and sort ephemeris data by time transmission
     for (int i = 0; i < NSAT; i++) {
-        SortEphs(&nav->ephs[i]);
+        if (nav->ephs[i].n > 1) {
+            SortEphs(&nav->ephs[i]);
+        }
     }
 
 }

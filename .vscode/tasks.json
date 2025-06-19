@@ -2,13 +2,13 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build test_rinex",
+            "label": "build test_navfile",
             "type": "shell",
             "command": "gcc",
             "args": [
                 "-g",
-                "-o", "test_rinex",
-                "test_rinex.c",
+                "-o", "test_navfile",
+                "test_navfile.c",
 
                 "src/common.c",
                 "src/ephemeris.c",

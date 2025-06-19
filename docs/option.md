@@ -173,7 +173,7 @@ option 모듈 함수 계층
 
 ### 5.1 옵션 관리 함수
 
-#### 5.1.1 SetDefaultOpt() - 옵션 데이터 초기화
+#### SetDefaultOpt() - 옵션 데이터 초기화
 <details>
 <summary>상세 설명</summary>
 

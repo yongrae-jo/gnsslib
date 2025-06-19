@@ -322,7 +322,7 @@ ephemeris 모듈 함수 계층
 
 ### 5.1 궤도력 데이터 구조체 관리 함수
 
-### 5.1.1 InitEphs() - 궤도력 데이터셋 초기화
+#### InitEphs() - 궤도력 데이터셋 초기화
 <details>
 <summary>상세 설명</summary>
 
@@ -350,7 +350,7 @@ InitEphs(&ephs);  // 안전한 초기화
 
 </details>
 
-### 5.1.2 FreeEphs() - 궤도력 데이터셋 해제
+#### FreeEphs() - 궤도력 데이터셋 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -382,7 +382,7 @@ FreeEphs(&ephs);  // 안전한 메모리 해제
 
 </details>
 
-### 5.1.3 AddEph() - 궤도력 데이터 추가
+#### AddEph() - 궤도력 데이터 추가
 <details>
 <summary>상세 설명</summary>
 
@@ -428,7 +428,7 @@ if (AddEph(&ephs, &new_eph)) {
 
 </details>
 
-### 5.1.4 SortEphs() - 궤도력 데이터 정렬/중복제거
+#### SortEphs() - 궤도력 데이터 정렬/중복제거
 <details>
 <summary>상세 설명</summary>
 
@@ -493,7 +493,7 @@ SortEphs(&ephs);       // 정렬 및 중복 제거
 
 </details>
 
-### 5.1.5 ResizeEphs() - 궤도력 배열 크기 조정 (Static)
+#### ResizeEphs() - 궤도력 배열 크기 조정 (Static)
 <details>
 <summary>상세 설명</summary>
 
@@ -520,7 +520,7 @@ ephs->eph = newEph;     // 성공 시에만 포인터 업데이트
 
 </details>
 
-### 5.1.6 CompareEph() - 궤도력 데이터 비교 (Static)
+#### CompareEph() - 궤도력 데이터 비교 (Static)
 <details>
 <summary>상세 설명</summary>
 
@@ -549,7 +549,7 @@ ephs->eph = newEph;     // 성공 시에만 포인터 업데이트
 
 ### 5.2 위성 위치/시계 계산 함수
 
-### 5.2.1 SatPosClkBrdc() - 통합 위성 위치/시계 계산
+#### SatPosClkBrdc() - 통합 위성 위치/시계 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -628,7 +628,7 @@ if (eph) *eph = *ephSelected;                                      // 사용된 
 
 </details>
 
-### 5.2.2 Eph2Pos() - Keplerian 궤도 계산 (Static)
+#### Eph2Pos() - Keplerian 궤도 계산 (Static)
 <details>
 <summary>상세 설명</summary>
 
@@ -682,7 +682,7 @@ $$\Delta t^s = a_{f0} + a_{f1} \cdot t_k + a_{f2} \cdot t_k^2 - \frac{2\sqrt{\mu
 
 </details>
 
-### 5.2.3 GloEph2Pos() - GLONASS 궤도 계산 (Static)
+#### GloEph2Pos() - GLONASS 궤도 계산 (Static)
 <details>
 <summary>상세 설명</summary>
 
@@ -727,7 +727,7 @@ $$\Delta t^s = -\tau_n + \gamma_n \cdot (t - t_{oc})$$
 
 </details>
 
-### 5.2.4 SbsEph2Pos() - SBAS 궤도 계산 (Static)
+#### SbsEph2Pos() - SBAS 궤도 계산 (Static)
 <details>
 <summary>상세 설명</summary>
 
@@ -764,7 +764,7 @@ $$\Delta t^s = a_{f0} + a_{f1} \cdot t_k$$
 
 ### 5.3 궤도력 데이터 관리 함수
 
-### 5.3.1 SelectEph() - 최적 궤도력 선택
+#### SelectEph() - 최적 궤도력 선택
 <details>
 <summary>상세 설명</summary>
 
@@ -831,7 +831,7 @@ return (idx < 0) ? NULL : nav->ephs[sat-1].eph + idx; // 선택된 궤도력
 
 </details>
 
-### 5.3.2 TestEph() - 궤도력 유효성 검사
+#### TestEph() - 궤도력 유효성 검사
 <details>
 <summary>상세 설명</summary>
 
@@ -889,7 +889,7 @@ return 1;                                       // 유효한 궤도력
 
 ### 5.4 정확도 지수 변환 함수
 
-### 5.4.1 Ura2Idx()/Idx2Ura() - URA 변환
+#### Ura2Idx()/Idx2Ura() - URA 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -918,7 +918,7 @@ double Idx2Ura(int idx) {
 
 </details>
 
-### 5.4.2 Sisa2Idx()/Idx2Sisa() - SISA 변환
+#### Sisa2Idx()/Idx2Sisa() - SISA 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -970,7 +970,7 @@ double Idx2Sisa(int sisa) {
 
 ### 5.5 궤도력 타입 관리 함수
 
-### 5.5.1 GetEphType() - 궤도력 타입 조회
+#### GetEphType() - 궤도력 타입 조회
 <details>
 <summary>상세 설명</summary>
 
@@ -991,7 +991,7 @@ return EPHTYPE[sys - 1];                       // EPHTYPE 배열에서 타입 �
 
 </details>
 
-### 5.5.2 SetEphType() - 궤도력 타입 설정
+#### SetEphType() - 궤도력 타입 설정
 <details>
 <summary>상세 설명</summary>
 

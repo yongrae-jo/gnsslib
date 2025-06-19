@@ -5,10 +5,10 @@
             "name": "Debug test_rinex",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/test_rinex",
+            "program": "${workspaceFolder}/test_navfile",
             "args": [],
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "build test_rinex",
+            "preLaunchTask": "build test_navfile",
         }
     ]
 }

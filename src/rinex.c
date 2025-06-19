@@ -6,6 +6,7 @@
 // =============================================================================
 
 // Standard library
+#include <math.h>                       // for round, floor, fmod
 #include <string.h>                     // for strlen, strcpy, strncmp
 #include <stdlib.h>                     // for free
 #include <stdio.h>                      // for sscanf, sprintf
@@ -15,6 +16,7 @@
 #include "files.h"                      // for buffer_t, GetLine
 #include "common.h"                     // for Sys2Str
 #include "obs.h"                        // for Str2Code, Code2Fidx, AddObs, SortObss
+#include "ephemeris.h"                  // for AddEph, SortEph
 
 // =============================================================================
 // Macros
@@ -442,8 +444,6 @@ static int ReadRnxObsHeader(const buffer_t *buffer, rnxObs_t *rnxObs)
     return endFlag;
 }
 
-
-
 // Read RINEX v2 observation file body
 static int ReadRnxObsBodyV2(const buffer_t *buffer, rnxObs_t *rnxObs, size_t startLine)
 {
@@ -499,6 +499,9 @@ static int ReadRnxObsBodyV2(const buffer_t *buffer, rnxObs_t *rnxObs, size_t sta
     rnxObs->body = (rnxObsBody_t *)malloc(total * sizeof(rnxObsBody_t));
     if (!rnxObs->body) return 0;
     rnxObs->n = total;
+
+    // Clear memory
+    memset(rnxObs->body, 0, total * sizeof(rnxObsBody_t));
 
     // Allocate record buffer (reused for all satellites)
     char *record = (char *)malloc((ntype * 16 + 1) * sizeof(char));
@@ -618,7 +621,7 @@ static int ReadRnxObsBodyV2(const buffer_t *buffer, rnxObs_t *rnxObs, size_t sta
                 obsStr[14] = '\0';
 
                 // Convert string to float
-                rnxObs->body[oidx].obs[t] = atof(obsStr);
+                rnxObs->body[oidx].obs[t] = strtod(obsStr, NULL);
 
                 // Parse LLI (15th character)
                 char lliChar = record[fieldStart + 14];
@@ -788,7 +791,7 @@ static int ReadRnxObsBodyV3(const buffer_t *buffer, rnxObs_t *rnxObs, size_t sta
                 obsStr[14] = '\0';
 
                 // Convert string to float
-                rnxObs->body[oidx].obs[t] = atof(obsStr);
+                rnxObs->body[oidx].obs[t] = strtod(obsStr, NULL);
 
                 // Parse LLI (15th character)
                 char lliChar = record[fieldStart + 14];
@@ -861,7 +864,7 @@ static int ArrangeObs(obss_t *obs, rnxObs_t *rnxObs, int rcvidx)
     // Check if the receiver index is valid
     if (rcvidx <= 0 || rcvidx > NRCV) return 0;
 
-        // Process each observation epoch
+    // Process each observation epoch
     for (int i = 0; i < rnxObs->n; i++) {
 
         // Convert satellite ID to satellite number
@@ -962,10 +965,25 @@ static int ArrangeObs(obss_t *obs, rnxObs_t *rnxObs, int rcvidx)
         }
     }
 
-    // Sort observations by time, receiver, and satellite
-    SortObss(obs);
-
     return 1;
+}
+
+// Helper function to adjust time considering week handover
+static double AdjWeek(double t, double t0)
+{
+    double dt = t - t0;
+    if (dt > 302400.0) t -= 604800.0;
+    else if (dt < -302400.0) t += 604800.0;
+    return t;
+}
+
+// Helper function to adjust time considering day handover
+static double AdjDay(double t, double t0)
+{
+    double dt = t - t0;
+    if (dt > 43200.0) t -= 86400.0;
+    else if (dt < -43200.0) t += 86400.0;
+    return t;
 }
 
 // Read RINEX navigation file header (1: success, 0: failure)
@@ -973,7 +991,138 @@ static int ReadRnxNavHeader(const buffer_t *buffer, rnxNav_t *rnxNav)
 {
     if (!buffer || !rnxNav) return 0;
 
+    char *line;
+    int len, endFlag = 0;
+    size_t l;
+    double ver;
 
+    for (l = 0; l < buffer->nline && !endFlag; l++) {
+
+        // Get line from buffer
+        if (!(line = GetLine(buffer, l, &len))) continue;
+
+        // Parse header
+        if (LineContains(line, len, "RINEX VERSION / TYPE", 60)) {
+
+            // Set version and system
+            if (sscanf(line, "%lf", &ver) != 1) return 0;
+            rnxNav->header.ver = ver;
+
+            if (ver < 3.0) {
+                if (len > 20) {
+                    switch (line[20]) {
+                        case 'N': rnxNav->header.sys = STR_GPS; break; // GPS
+                        case 'G': rnxNav->header.sys = STR_GLO; break; // GLONASS
+                        default: return 0;
+                    }
+                }
+            } else {
+                if (len > 40) rnxNav->header.sys = line[40];
+            }
+        }
+        else if (LineContains(line, len, "ION ALPHA", 60)) { // For ver 2 GPS
+            int sysidx = Str2Sys(STR_GPS);
+            if (sysidx > 0) {
+                // Create a copy of the line and replace D with E
+                char line_copy[512];
+                strncpy(line_copy, line, len < 511 ? len : 511);
+                line_copy[len < 511 ? len : 511] = '\0';
+
+                // Replace D or d with E in the line copy
+                for (int i = 0; line_copy[i] != '\0'; i++) {
+                    if (line_copy[i] == 'D' || line_copy[i] == 'd') {
+                        line_copy[i] = 'E';
+                    }
+                }
+
+                sscanf(line_copy, "%lf %lf %lf %lf",
+                       &rnxNav->header.iono[sysidx - 1][0],
+                       &rnxNav->header.iono[sysidx - 1][1],
+                       &rnxNav->header.iono[sysidx - 1][2],
+                       &rnxNav->header.iono[sysidx - 1][3]);
+            }
+        }
+        else if (LineContains(line, len, "ION BETA", 60)) { // For ver 2 GPS
+            int sysidx = Str2Sys(STR_GPS);
+            if (sysidx > 0) {
+                // Create a copy of the line and replace D with E
+                char line_copy[512];
+                strncpy(line_copy, line, len < 511 ? len : 511);
+                line_copy[len < 511 ? len : 511] = '\0';
+
+                // Replace D or d with E in the line copy
+                for (int i = 0; line_copy[i] != '\0'; i++) {
+                    if (line_copy[i] == 'D' || line_copy[i] == 'd') {
+                        line_copy[i] = 'E';
+                    }
+                }
+
+                sscanf(line_copy, "%lf %lf %lf %lf",
+                       &rnxNav->header.iono[sysidx - 1][4],
+                       &rnxNav->header.iono[sysidx - 1][5],
+                       &rnxNav->header.iono[sysidx - 1][6],
+                       &rnxNav->header.iono[sysidx - 1][7]);
+            }
+        }
+        else if (LineContains(line, len, "IONOSPHERIC CORR", 60)) { // For ver 3
+            char type_str[5];
+            double params[4];
+
+            // Extract type and parameters
+            strncpy(type_str, line, 4);
+            type_str[4] = '\0';
+
+            // Create a copy of the line and replace D with E
+            char line_copy[512];
+            strncpy(line_copy, line, len < 511 ? len : 511);
+            line_copy[len < 511 ? len : 511] = '\0';
+
+            // Replace D or d with E in the line copy
+            for (int i = 0; line_copy[i] != '\0'; i++) {
+                if (line_copy[i] == 'D' || line_copy[i] == 'd') {
+                    line_copy[i] = 'E';
+                }
+            }
+
+            sscanf(line_copy + 5, "%lf %lf %lf %lf", &params[0], &params[1], &params[2], &params[3]);
+
+            int sysidx = 0;
+            if (strncmp(type_str, "GPSA", 4) == 0 || strncmp(type_str, "GPSB", 4) == 0) {
+                sysidx = Str2Sys(STR_GPS);
+            } else if (strncmp(type_str, "BDSA", 4) == 0 || strncmp(type_str, "BDSB", 4) == 0) {
+                sysidx = Str2Sys(STR_BDS);
+            } else if (strncmp(type_str, "QZSA", 4) == 0 || strncmp(type_str, "QZSB", 4) == 0) {
+                sysidx = Str2Sys(STR_QZS);
+            } else if (strncmp(type_str, "IRNA", 4) == 0 || strncmp(type_str, "IRNB", 4) == 0) {
+                sysidx = Str2Sys(STR_IRN);
+            } else if (strncmp(type_str, "GAL", 3) == 0) {
+                sysidx = Str2Sys(STR_GAL);
+            }
+
+            if (sysidx > 0) {
+                if (strncmp(type_str, "GAL", 3) == 0) { // NeQuick-G has 3 parameters
+                    rnxNav->header.iono[sysidx - 1][0] = params[0];
+                    rnxNav->header.iono[sysidx - 1][1] = params[1];
+                    rnxNav->header.iono[sysidx - 1][2] = params[2];
+                } else if (type_str[3] == 'A') { // Klobuchar-like alpha
+                    rnxNav->header.iono[sysidx - 1][0] = params[0];
+                    rnxNav->header.iono[sysidx - 1][1] = params[1];
+                    rnxNav->header.iono[sysidx - 1][2] = params[2];
+                    rnxNav->header.iono[sysidx - 1][3] = params[3];
+                } else if (type_str[3] == 'B') { // Klobuchar-like beta
+                    rnxNav->header.iono[sysidx - 1][4] = params[0];
+                    rnxNav->header.iono[sysidx - 1][5] = params[1];
+                    rnxNav->header.iono[sysidx - 1][6] = params[2];
+                    rnxNav->header.iono[sysidx - 1][7] = params[3];
+                }
+            }
+        }
+        else if (LineContains(line, len, "END OF HEADER", 60)) {
+            endFlag = 1;
+        }
+    }
+
+    return endFlag;
 }
 
 // Read RINEX navigation file body (1: success, 0: failure)
@@ -982,7 +1131,228 @@ static int ReadRnxNavBody(const buffer_t *buffer, rnxNav_t *rnxNav)
     // Check if the parameters are valid
     if (!buffer || !rnxNav) return 0;
 
+    int ver = (int)rnxNav->header.ver;
+    int v3 = (ver == 3);
+    char *line;
+    int len;
+    size_t l;
 
+    // Find start of body
+    size_t startLine = 0;
+    for (l = 0; l < buffer->nline; l++) {
+
+        // Get line from buffer
+        if (!(line = GetLine(buffer, l, &len))) return 0;
+
+        // Check if the line contains "END OF HEADER"
+        if (LineContains(line, len, "END OF HEADER", 60)) {
+            startLine = l + 1;
+            break;
+        }
+    }
+
+    // Header end not found
+    if (startLine == 0) return 0;
+
+    // First pass: count navigation messages
+    int total = 0;
+    for (l = startLine; l < buffer->nline; l++) {
+        if (!(line = GetLine(buffer, l, &len))) continue;
+
+        cal_t cal; // dummy
+        int sys, prn;
+
+        // Common epoch line format check
+        if (len < 4 || line[1 + v3] == ' ' || line[2 + v3] != ' ') continue;
+
+        if (v3) {
+            // RINEX v3: Check if first character is valid system identifier
+            sys = Str2Sys(line[0]);
+            if (sys == 0) continue;
+
+        } else { // v2
+
+            // RINEX v2: Try to parse PRN from beginning
+            if (sscanf(line, "%d", &prn) == 1) {
+
+                // Standard case: line starts with PRN number
+                sys = Str2Sys(rnxNav->header.sys);
+
+            } else if (Str2Sys(rnxNav->header.sys) == Str2Sys(STR_GAL) &&
+                       Str2Sys(line[0]) == Str2Sys(STR_GAL) && 0) { // TBD
+
+                // Currently v2 Galileo ephemeris is not supported
+                // Special case: Galileo with "EXX" format in v2 (TBD)
+                sys = Str2Sys(STR_GAL);
+
+            } else {
+                // Invalid format
+                continue;
+            }
+        }
+
+        // Determine number of orbit data lines based on system
+        int nlo;
+        switch (Sys2Str(sys)) {
+            case STR_GLO:
+            case STR_SBS:
+                nlo = 3;
+                break;
+            default:
+                nlo = 7;
+                break;
+        }
+
+        total++;
+        l += nlo;
+    }
+
+    if (total == 0) return 1;
+
+    // Allocate memory
+    rnxNav->body = (rnxNavBody_t *)malloc(total * sizeof(rnxNavBody_t));
+    if (!rnxNav->body) return 0;
+    rnxNav->n = total;
+
+    // Clear memory
+    memset(rnxNav->body, 0, total * sizeof(rnxNavBody_t));
+
+    // Second pass: parse navigation messages
+    int nidx = 0;
+    for (l = startLine; l < buffer->nline && nidx < total; l++) {
+
+        // Get line from buffer
+        if (!(line = GetLine(buffer, l, &len))) continue;
+
+        // Get body pointer
+        rnxNavBody_t *body = &rnxNav->body[nidx];
+
+        // Common epoch line format check
+        if (len < 4 || line[1 + v3] == ' ' || line[2 + v3] != ' ') continue;
+
+        // Step 1: Parse epoch line (satStr and calendar only)
+        int valid_epoch = 0;
+        if (v3) {
+            // RINEX v3: Parse system identifier and epoch data
+            int sys = Str2Sys(line[0]);
+            if (sys == 0) continue;
+
+            if (sscanf(line, "%3s %4d %2d %2d %2d %2d %lf",
+                       body->satStr.str, &body->cal.year, &body->cal.mon, &body->cal.day,
+                       &body->cal.hour, &body->cal.min, &body->cal.sec) >= 7) {
+                valid_epoch = 1;
+            }
+
+        } else { // v2
+            // RINEX v2: Try to parse PRN from beginning
+            int prn;
+            if (sscanf(line, "%d %2d %2d %2d %2d %2d %lf",
+                       &prn, &body->cal.year, &body->cal.mon, &body->cal.day,
+                       &body->cal.hour, &body->cal.min, &body->cal.sec) >= 7) {
+
+                // Standard case: line starts with PRN number
+                if (body->cal.year < 80) body->cal.year += 2000; else body->cal.year += 1900;
+                sprintf(body->satStr.str, "%c%02d", rnxNav->header.sys, prn);
+                valid_epoch = 1;
+
+            } else if (Str2Sys(rnxNav->header.sys) == Str2Sys(STR_GAL) &&
+                       Str2Sys(line[0]) == Str2Sys(STR_GAL) && 0) { // TBD
+
+                // Currently v2 Galileo ephemeris is not supported
+                // Special case: Galileo with "EXX" format in v2 (TBD)
+                if (sscanf(line, "%3s %2d %2d %2d %2d %2d %lf",
+                           body->satStr.str, &body->cal.year, &body->cal.mon, &body->cal.day,
+                           &body->cal.hour, &body->cal.min, &body->cal.sec) >= 7) {
+
+                    if (body->cal.year < 80) body->cal.year += 2000; else body->cal.year += 1900;
+                    valid_epoch = 1;
+                }
+            }
+        }
+
+        // Check if epoch parsing was successful
+        if (!valid_epoch) continue;
+
+        // Step 2: Parse clock parameters (handle D->E conversion)
+        char field[20];
+        for (int i = 0; i < 3; i++) {
+            int offset = (v3 ? 23 : 22) + i * 19;  // Clock field positions
+            if (offset + 19 > len) {
+                body->clock[i] = 0.0;
+                continue;
+            }
+
+            // Extract clock field
+            strncpy(field, line + offset, 19);
+            field[19] = '\0';
+
+            // Replace D or d with E for strtod
+            for (int k = 0; field[k] != '\0'; k++) {
+                if (field[k] == 'D' || field[k] == 'd') {
+                    field[k] = 'E';
+                }
+            }
+
+            body->clock[i] = strtod(field, NULL);
+        }
+
+        // Number of lines of orbit data
+        int sys = Str2Sys(body->satStr.str[0]);
+        int nlo;
+        switch (Sys2Str(sys)) {
+            case STR_GLO:
+            case STR_SBS:
+                nlo = 3;
+                break;
+            default:
+                nlo = 7;
+                break;
+        }
+
+        // Parse orbit data lines
+        for (int i = 0; i < nlo; i++) {
+
+            // Get orbit data line
+            char *orbitline;
+            if (!(orbitline = GetLine(buffer, l + 1 + i, &len))) break;
+
+            char field[20];
+            for (int j = 0; j < 4; j++) {
+                int orbit_idx = i * 4 + j;
+                if (orbit_idx >= 28) break;
+
+                int offset = (v3 ? 4 : 3) + j * 19;
+                if (offset + 19 > len) {
+                    body->orbit[orbit_idx] = 0.0;
+                    continue;
+                }
+
+                // Parse orbit value
+                strncpy(field, orbitline + offset, 19);
+                field[19] = '\0';
+
+                // Replace D or d with E for strtod
+                for (int k = 0; field[k] != '\0'; k++) {
+                    if (field[k] == 'D' || field[k] == 'd') {
+                        field[k] = 'E';
+                    }
+                }
+
+                body->orbit[orbit_idx] = strtod(field, NULL);
+            }
+        }
+
+        // Update index
+        nidx++;
+
+        // Skip orbit data lines
+        l += nlo;
+    }
+
+    // Update with actual count
+    rnxNav->n = nidx;
+
+    return 1;
 }
 
 // Add and arrange navigation data to navigation structure
@@ -991,8 +1361,220 @@ static int ArrangeNav(nav_t *nav, rnxNav_t *rnxNav)
     // Check if the parameters are valid
     if (!nav || !rnxNav) return 0;
 
+    // Initialize ephemeris structure
+    eph_t eph;
 
+    // Process each navigation message
+    for (int i = 0; i < rnxNav->n; i++) {
+
+        // Get body pointer
+        rnxNavBody_t *body = &rnxNav->body[i];
+
+        // Get satellite index
+        int sat = Str2Sat(body->satStr);
+        if (sat <= 0) continue;
+
+        // Get system and PRN
+        int prn;
+        int sys = Sat2Prn(sat, &prn);
+        if (sys <= 0) continue;
+
+        // Clear memory
+        memset(&eph, 0, sizeof(eph_t));
+        eph.sat = sat;
+
+        // TOC in calendar format from body
+        double toc = Cal2Time(body->cal);
+        int week;
+        double tocs = Time2Gpst(toc, &week);
+
+        // Process each system
+        char sysStr = Sys2Str(sys);
+        switch (sysStr) {
+            case STR_GPS:
+            case STR_GAL:
+            case STR_QZS:
+            case STR_BDS:
+            case STR_IRN:
+
+                // Clock parameters
+                eph.af0 = body->clock[0];
+                eph.af1 = body->clock[1];
+                eph.af2 = body->clock[2];
+
+                // Orbit parameters
+                eph.IODE = (int)body->orbit[0];
+                eph.crs  = body->orbit[1];
+                eph.deln = body->orbit[2];
+                eph.M0   = body->orbit[3];
+                eph.cuc  = body->orbit[4];
+                eph.e    = body->orbit[5];
+                eph.cus  = body->orbit[6];
+                eph.A    = body->orbit[7] * body->orbit[7];
+                eph.toes = body->orbit[8];
+                eph.cic  = body->orbit[9];
+                eph.OMG0 = body->orbit[10];
+                eph.cis  = body->orbit[11];
+                eph.i0   = body->orbit[12];
+                eph.crc  = body->orbit[13];
+                eph.omg  = body->orbit[14];
+                eph.OMGd = body->orbit[15];
+                eph.iodt = body->orbit[16];
+
+                // Code on L2 (G,J) and data source (E)
+                if (sysStr == STR_GPS || sysStr == STR_QZS) {
+                    eph.code = (int)body->orbit[17];
+                }
+                else if (sysStr == STR_GAL) {
+                    eph.data = (int)body->orbit[17];
+                }
+
+                // GPS week (no week rollover) (G,E,C,J,I) (C: BDS week)
+                eph.week = (int)body->orbit[18];
+
+                // L2P data flag (G,J)
+                if (sysStr == STR_GPS || sysStr == STR_QZS) {
+                    eph.flag = (int)body->orbit[19];
+                }
+
+                // Satellite accuracy (G,E,C,J,I)
+                if (sysStr == STR_GAL) {
+                    eph.sva = Sisa2Idx(body->orbit[20]);
+                }
+                else {
+                    eph.sva = Ura2Idx(body->orbit[20]);
+                }
+
+                // Satellite health (G,E,C,J,I)
+                eph.svh = (int)body->orbit[21];
+
+                // TGD (G,J,I), BGD E5a/E1 (E), TGD1 B1/B3 (C)
+                eph.tgd[0] = body->orbit[22];
+
+                // IODC (G,J,I), BGD E5b/E1 (E), TGD2 B2/B3 (C)
+                if (sysStr == STR_GAL || sysStr == STR_BDS) {
+                    eph.tgd[1] = body->orbit[23];
+                }
+                else {
+                    eph.IODC = (int)body->orbit[23];
+                }
+
+                // Time of transmission
+                eph.ttrs = body->orbit[24];
+
+                // Fit interval (G,J), AODC (C)
+                if (sysStr == STR_GPS) {
+                    eph.fit = body->orbit[25] == 0.0 ? 4.0 : body->orbit[25];
+                }
+                else if (sysStr == STR_QZS) {
+                    eph.fit = body->orbit[25] == 0.0 ? 2.0 : body->orbit[25] == 1.0 ? 4.0 : body->orbit[25];
+                }
+                else if (sysStr == STR_BDS) {
+                    eph.AODC = (int)body->orbit[25];
+                }
+
+                // Convert week and toc, toe, ttr to standard time
+                if (sysStr == STR_BDS) {
+                    eph.toc = Bdt2Gpst(Gpst2Time(week, tocs));          // GPS week and toc of BDS time -> GPS time
+                    eph.toe = Bdt2Gpst(Bdt2Time(eph.week, eph.toes));   // BDS week and toe of BDS time -> GPS time
+                    eph.ttr = Bdt2Gpst(Bdt2Time(eph.week, eph.ttrs));   // BDS week and ttr of BDS time -> GPS time
+                }
+                else {
+                    eph.toc = Gpst2Time(week, tocs);                    // GPS week and toc of GPS time -> GPS time
+                    eph.toe = Gpst2Time(eph.week, eph.toes);            // GPS week and toe of GPS time -> GPS time
+                    eph.ttr = Gpst2Time(eph.week, eph.ttrs);            // GPS week and ttr of GPS time -> GPS time
+                }
+
+                // Adjust week handover
+                eph.toe = AdjWeek(eph.toe, eph.toc);
+                eph.ttr = AdjWeek(eph.ttr, eph.toc);
+
+                // Add ephemeris to navigation structure
+                if (!AddEph(nav->ephs + sat - 1, &eph)) break;
+                break;
+
+            case STR_GLO:
+                // GLONASS ephemeris
+
+                // Clock parameters
+                eph.taun = -body->clock[0];
+                eph.gamn =  body->clock[1];
+
+                // Orbit params are in km, convert to m
+                eph.pos[0] = body->orbit[0] * 1000.0;
+                eph.vel[0] = body->orbit[1] * 1000.0;
+                eph.acc[0] = body->orbit[2] * 1000.0;
+                eph.svh    = (int)body->orbit[3];
+                eph.pos[1] = body->orbit[4] * 1000.0;
+                eph.vel[1] = body->orbit[5] * 1000.0;
+                eph.acc[1] = body->orbit[6] * 1000.0;
+                eph.frq    = (int)body->orbit[7];
+                eph.pos[2] = body->orbit[8] * 1000.0;
+                eph.vel[2] = body->orbit[9] * 1000.0;
+                eph.acc[2] = body->orbit[10] * 1000.0;
+                eph.age    = (int)body->orbit[11];
+
+                // Compute toc rounded by 15 minutes in UTC time
+                toc = Gpst2Time(week, round((tocs + 450.0) / 900.0) * 900.0);
+                int dow = (int)floor(tocs / 86400.0);
+
+                // Time of day
+                double tod = body->clock[2]; // Time of day
+                if ((int)(rnxNav->header.ver) == 3) {
+                    tod = fmod(tod, 86400.0);
+                }
+
+                // Convert UTC to GPST
+                eph.toc = toc;
+                eph.toe = toc; // For GLO, toe is the same as toc
+                eph.ttr = Utc2Gpst(AdjDay(Gpst2Time(week, dow * 86400.0 + tod), toc));
+
+                // Compute IODE = tb(7 bits), tb = index of UTC + 3h within current day
+                eph.IODE = (int)round(fmod(tocs + 10800.0, 86400.0) / 900.0);
+
+                // Add ephemeris
+                if (!AddEph(nav->ephs + sat - 1, &eph)) break;
+                break;
+
+            case STR_SBS:
+                // SBAS ephemeris
+
+                // Clock parameters
+                eph.af0  = body->clock[0];
+                eph.af1  = body->clock[1];
+                eph.ttrs = body->clock[2];
+
+                // Orbit params are in km, convert to m
+                eph.pos[0] = body->orbit[0] * 1000.0;
+                eph.vel[0] = body->orbit[1] * 1000.0;
+                eph.acc[0] = body->orbit[2] * 1000.0;
+                eph.svh    = (int)body->orbit[3];
+                eph.pos[1] = body->orbit[4] * 1000.0;
+                eph.vel[1] = body->orbit[5] * 1000.0;
+                eph.acc[1] = body->orbit[6] * 1000.0;
+                eph.sva    = Ura2Idx(body->orbit[7]); // URA index
+                eph.pos[2] = body->orbit[8] * 1000.0;
+                eph.vel[2] = body->orbit[9] * 1000.0;
+                eph.acc[2] = body->orbit[10] * 1000.0;
+                eph.IODE   = (int)body->orbit[11]; // IODN
+
+                // Time conversion
+                eph.toc = Gpst2Time(week, tocs);                    // GPS week and toc of GPS time -> GPS time
+                eph.toe = eph.toc;                                  // SBAS toe is the same as toc
+                eph.ttr = Gpst2Time(week, body->clock[2]);          // GPS week and ttr of GPS time -> GPS time
+
+                // Adjust week handover
+                eph.ttr = AdjWeek(eph.ttr, eph.toe);
+
+                // Add ephemeris
+                if (!AddEph(nav->ephs + sat - 1, &eph)) break;
+                break;
+        }
+    }
+
+    return 1;
 }
+
 // =============================================================================
 // RINEX check functions
 // =============================================================================
@@ -1178,7 +1760,7 @@ int ReadRnxNav(nav_t *nav, const char *filename)
 
     // Check RINEX system
     char sys = rnxNav.header.sys;
-    if (sys != 'M' && Sys2Str(sys) == '\0') {
+    if (sys != 'M' && Str2Sys(sys) == 0) {
         FreeRnxNav(&rnxNav);
         FreeBuff(&buffer);
         return 0;
@@ -1196,8 +1778,8 @@ int ReadRnxNav(nav_t *nav, const char *filename)
 
         int anyNonZero = 0;
 
-        for (int i = 0; i < 8; i++) {
-            if (rnxNav.header.iono[c][i] != 0.0) {
+        for (int j = 0; j < 8; j++) {
+            if (rnxNav.header.iono[c][j] != 0.0) {
                 anyNonZero = 1;
                 break;
             }
@@ -1205,8 +1787,8 @@ int ReadRnxNav(nav_t *nav, const char *filename)
 
         // Only update if any non-zero parameters exist
         if (anyNonZero) {
-            for (int i = 0; i < 8; i++) {
-                nav->iono[c][i] = rnxNav.header.iono[c][i];
+            for (int j = 0; j < 8; j++) {
+                nav->iono[c][j] = rnxNav.header.iono[c][j];
             }
         }
     }

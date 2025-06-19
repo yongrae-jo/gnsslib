@@ -210,7 +210,7 @@ matrix 모듈 함수 계층
 
 ### 5.1 기본 생성/해제 함수
 
-#### 5.1.1 Mat() - 행렬 생성
+#### Mat() - 행렬 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -267,7 +267,7 @@ FreeMat(empty);
 
 </details>
 
-#### 5.1.2 FreeMat() - 행렬 메모리 해제
+#### FreeMat() - 행렬 메모리 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -306,7 +306,7 @@ printf("NULL 포인터 해제 완료\n");
 
 </details>
 
-#### 5.1.3 Idx() - 인덱스 벡터 생성
+#### Idx() - 인덱스 벡터 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -365,7 +365,7 @@ FreeIdx(mask);
 
 </details>
 
-#### 5.1.4 FreeIdx() - 인덱스 벡터 해제
+#### FreeIdx() - 인덱스 벡터 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -385,7 +385,7 @@ FreeIdx(mask);
 
 ### 5.2 특수 행렬 생성 함수
 
-#### 5.2.1 Eye() - 단위행렬 생성
+#### Eye() - 단위행렬 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -438,7 +438,7 @@ FreeMat(I3); FreeMat(I5); FreeMat(I1);
 
 </details>
 
-#### 5.2.2 Zeros() - 영행렬 생성
+#### Zeros() - 영행렬 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -493,7 +493,7 @@ FreeMat(Z1); FreeMat(Z2); FreeMat(Z_empty);
 
 </details>
 
-#### 5.2.3 Ones() - 일행렬 생성
+#### Ones() - 일행렬 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -555,7 +555,7 @@ FreeMat(O1); FreeMat(ones_vec); FreeMat(weights);
 
 </details>
 
-#### 5.2.4 TrueIdx() - True 인덱스 벡터 생성
+#### TrueIdx() - True 인덱스 벡터 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -613,7 +613,7 @@ FreeIdx(all_true); FreeIdx(row_mask); FreeIdx(col_mask);
 
 </details>
 
-#### 5.2.5 FalseIdx() - False 인덱스 벡터 생성
+#### FalseIdx() - False 인덱스 벡터 생성
 <details>
 <summary>상세 설명</summary>
 
@@ -671,7 +671,7 @@ FreeIdx(all_false); FreeIdx(selective_mask); FreeIdx(empty_mask);
 
 ### 5.3 행렬 복사/변환 함수
 
-#### 5.3.1 MatCopy() - 행렬 복사
+#### MatCopy() - 행렬 복사
 <details>
 <summary>상세 설명</summary>
 
@@ -690,7 +690,7 @@ FreeIdx(all_false); FreeIdx(selective_mask); FreeIdx(empty_mask);
 
 </details>
 
-#### 5.3.2 MatCopyIn() - 제자리 복사
+#### MatCopyIn() - 제자리 복사
 <details>
 <summary>상세 설명</summary>
 
@@ -765,7 +765,7 @@ FreeMat(original); FreeMat(backup);
 
 </details>
 
-#### 5.3.3 MatTr() - 행렬 전치
+#### MatTr() - 행렬 전치
 <details>
 <summary>상세 설명</summary>
 
@@ -784,7 +784,7 @@ FreeMat(original); FreeMat(backup);
 
 </details>
 
-#### 5.3.4 MatTrIn() - 제자리 전치
+#### MatTrIn() - 제자리 전치
 <details>
 <summary>상세 설명</summary>
 
@@ -862,7 +862,7 @@ FreeMat(A); FreeMat(square);
 
 ### 5.4 고급 인덱싱 함수
 
-#### 5.4.1 MatVecIdx() - 벡터 인덱싱
+#### MatVecIdx() - 벡터 인덱싱
 <details>
 <summary>상세 설명</summary>
 
@@ -928,7 +928,7 @@ FreeIdx(ridx); FreeIdx(cidx);
 
 </details>
 
-#### 5.4.2 MatVecIdxIn() - 제자리 벡터 인덱싱
+#### MatVecIdxIn() - 제자리 벡터 인덱싱
 <details>
 <summary>상세 설명</summary>
 
@@ -1025,7 +1025,7 @@ FreeIdx(diag_idx); FreeIdx(col_idx); FreeIdx(single_row); FreeIdx(all_cols);
 
 </details>
 
-#### 5.4.3 MatLogIdx() - 논리 인덱싱
+#### MatLogIdx() - 논리 인덱싱
 <details>
 <summary>상세 설명</summary>
 
@@ -1133,7 +1133,7 @@ FreeIdx(row_mask); FreeIdx(col_mask); FreeIdx(value_row_mask); FreeIdx(value_col
 
 ### 5.5 행렬 연산 함수
 
-#### 5.5.1 MatAdd() - 일반화 행렬 덧셈
+#### MatAdd() - 일반화 행렬 덧셈
 <details>
 <summary>상세 설명</summary>
 
@@ -1179,7 +1179,7 @@ FreeMat(A); FreeMat(B);
 
 </details>
 
-#### 5.5.2 MatAddIn() - 제자리 덧셈
+#### MatAddIn() - 제자리 덧셈
 <details>
 <summary>상세 설명</summary>
 
@@ -1253,7 +1253,7 @@ FreeMat(A); FreeMat(B); FreeMat(C);
 
 </details>
 
-#### 5.5.3 MatMul() - 일반화 행렬 곱셈
+#### MatMul() - 일반화 행렬 곱셈
 <details>
 <summary>상세 설명</summary>
 
@@ -1299,7 +1299,7 @@ FreeMat(A); FreeMat(B);
 
 </details>
 
-#### 5.5.4 MatMulIn() - 제자리 행렬 곱셈
+#### MatMulIn() - 제자리 행렬 곱셈
 <details>
 <summary>상세 설명</summary>
 
@@ -1383,7 +1383,7 @@ FreeMat(A); FreeMat(B); FreeMat(C);
 
 </details>
 
-#### 5.5.5 MatInv() - 일반화 행렬 역행렬
+#### MatInv() - 일반화 행렬 역행렬
 <details>
 <summary>상세 설명</summary>
 
@@ -1426,7 +1426,7 @@ FreeMat(A);
 
 </details>
 
-#### 5.5.6 MatInvIn() - 제자리 역행렬
+#### MatInvIn() - 제자리 역행렬
 <details>
 <summary>상세 설명</summary>
 
@@ -1526,7 +1526,7 @@ FreeMat(A); FreeMat(A_backup); FreeMat(B);
 
 </details>
 
-#### 5.5.7 Dot() - 벡터 내적
+#### Dot() - 벡터 내적
 <details>
 <summary>상세 설명</summary>
 
@@ -1567,7 +1567,7 @@ FreeMat(v1); FreeMat(v2);
 
 </details>
 
-#### 5.5.8 Cross3() - 3차원 외적
+#### Cross3() - 3차원 외적
 <details>
 <summary>상세 설명</summary>
 
@@ -1610,7 +1610,7 @@ FreeMat(v1); FreeMat(v2); FreeMat(v_cross);
 
 </details>
 
-#### 5.5.9 Norm() - 유클리드 노름
+#### Norm() - 유클리드 노름
 <details>
 <summary>상세 설명</summary>
 
@@ -1648,7 +1648,7 @@ FreeMat(v);
 
 ### 5.6 분석 함수
 
-#### 5.6.1 MatDet() - 행렬식 계산
+#### MatDet() - 행렬식 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -1688,7 +1688,7 @@ FreeMat(A);
 
 ### 5.7 고급 알고리즘 함수
 
-#### 5.7.1 Lsq() - 최소제곱법
+#### Lsq() - 최소제곱법
 <details>
 <summary>상세 설명</summary>
 
@@ -1806,7 +1806,7 @@ FreeMat(R); FreeMat(x_weighted); FreeMat(P_weighted); FreeMat(Hl_only);
 
 </details>
 
-#### 5.7.2 Ekf() - 확장칼만필터 (Joseph 형태)
+#### Ekf() - 확장칼만필터 (Joseph 형태)
 <details>
 <summary>상세 설명</summary>
 
@@ -1933,7 +1933,7 @@ FreeMat(v); FreeMat(K); FreeMat(K_only); FreeMat(P_copy);
 
 </details>
 
-#### 5.7.3 Interp() - 선형 보간
+#### Interp() - 선형 보간
 <details>
 <summary>상세 설명</summary>
 

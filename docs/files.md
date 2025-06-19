@@ -334,7 +334,7 @@ files 모듈 함수 계층
 
 ### 5.1 파일명 배열 관리 함수
 
-#### 5.1.1 AddFileName() - 파일명 추가
+#### AddFileName() - 파일명 추가
 <details>
 <summary>상세 설명</summary>
 
@@ -385,7 +385,7 @@ if (AddFileName(&obsfiles, "test.obs")) {
 
 </details>
 
-#### 5.1.2 GetFileName() - 파일명 조회
+#### GetFileName() - 파일명 조회
 <details>
 <summary>상세 설명</summary>
 
@@ -420,7 +420,7 @@ for (int i = 0; i < obsfiles.n; i++) {
 
 ### 5.2 파일 세트 관리 함수
 
-#### 5.2.1 InitFile() - 파일 세트 초기화
+#### InitFile() - 파일 세트 초기화
 <details>
 <summary>상세 설명</summary>
 
@@ -447,7 +447,7 @@ InitFileStr(&file->atxfiles);       // 안테나 파일 초기화
 
 </details>
 
-#### 5.2.2 FreeFile() - 파일 세트 해제
+#### FreeFile() - 파일 세트 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -476,7 +476,7 @@ FreeFileStr(&file->atxfiles);       // 안테나 파일 해제
 
 ### 5.3 버퍼 관리 함수
 
-#### 5.3.1 InitBuff() - 버퍼 구조체 초기화
+#### InitBuff() - 버퍼 구조체 초기화
 <details>
 <summary>상세 설명</summary>
 
@@ -500,7 +500,7 @@ return 1;                           // 성공
 
 </details>
 
-#### 5.3.2 GetBuff() - 파일을 메모리 버퍼로 로드
+#### GetBuff() - 파일을 메모리 버퍼로 로드
 <details>
 <summary>상세 설명</summary>
 
@@ -578,7 +578,7 @@ if (start < size) {
 
 </details>
 
-#### 5.3.3 FreeBuff() - 버퍼 메모리 해제
+#### FreeBuff() - 버퍼 메모리 해제
 <details>
 <summary>상세 설명</summary>
 
@@ -612,7 +612,7 @@ buffer->nline = 0;                  // 라인 개수 초기화
 
 ### 5.4 파일 읽기 함수
 
-#### 5.4.1 ReadObsFiles() - 관측 파일 읽기
+#### ReadObsFiles() - 관측 파일 읽기
 <details>
 <summary>상세 설명</summary>
 
@@ -670,7 +670,7 @@ SortObss(obs);                          // 시간, 수신기, 위성 순 정렬
 
 </details>
 
-#### 5.4.2 ReadNavFiles() - 항법 파일 읽기 (TODO)
+#### ReadNavFiles() - 항법 파일 읽기 (TODO)
 <details>
 <summary>상세 설명</summary>
 
@@ -684,7 +684,7 @@ SortObss(obs);                          // 시간, 수신기, 위성 순 정렬
 
 </details>
 
-#### 5.4.3 ReadDcbFiles() - DCB 파일 읽기 (TODO)
+#### ReadDcbFiles() - DCB 파일 읽기 (TODO)
 <details>
 <summary>상세 설명</summary>
 
@@ -698,7 +698,7 @@ SortObss(obs);                          // 시간, 수신기, 위성 순 정렬
 
 </details>
 
-#### 5.4.4 ReadAtxFiles() - 안테나 파일 읽기 (TODO)
+#### ReadAtxFiles() - 안테나 파일 읽기 (TODO)
 <details>
 <summary>상세 설명</summary>
 
@@ -711,7 +711,7 @@ SortObss(obs);                          // 시간, 수신기, 위성 순 정렬
 
 </details>
 
-#### 5.4.5 ReadFiles() - 통합 파일 읽기
+#### ReadFiles() - 통합 파일 읽기
 <details>
 <summary>상세 설명</summary>
 
