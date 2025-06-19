@@ -67,16 +67,82 @@ typedef struct satStr {
 } satStr_t;
 ```
 
-### 2.2 구조체 정의
+### 2.2 구조체 정의 및 타입 관리
 - 멤버 변수는 적절한 들여쓰기와 정렬로 가독성 확보
 - 주석은 각 멤버의 역할과 단위를 명시
 - 기본값 초기화는 구조체 정의가 아닌 사용 시점에서 수행
+- **구조체 위치 규칙**:
+  - GNSS library 전체에서 사용되는 구조체 → `types.h`에 정의
+  - 특정 소스 파일에서만 사용되는 구조체 → 해당 소스 파일 내 정의
 
 ### 2.3 헤더 파일 관리
 - **순환 참조 절대 금지**
 - 헤더에는 선언에 필요한 최소한의 헤더만 포함
 - 구현 파일로 가능한 많은 헤더 이동
-- 내부 프로젝트 헤더는 외부 시스템 헤더 이후에 포함
+- **헤더 include 순서 및 형식**:
+```c
+// Standard library
+#include <stdio.h>
+#include <stdlib.h>
+
+// GNSS library
+#include "types.h"          // for types
+#include "common.h"         // for utility functions
+```
+
+### 2.4 함수 선언과 정의 위치
+- **공개 함수**: 헤더에 선언, 해당 소스에 정의
+- **내부 함수**: `static` 키워드로 소스 파일 내부에만 선언/정의
+- **inline 함수**: 헤더에 `static inline`으로 정의 (성능 중요한 간단한 함수)
+
+### 2.5 상수 정의 위치
+- **전역 상수**: `const.h`에 `#define`으로 정의
+- **모듈별 상수**: 해당 헤더 파일에 `#define`으로 정의
+- **파일 내부 상수**: 소스 파일에 `static const` 또는 `#define`으로 정의
+- 소스 구현 시 사용되는 매크로도 소스 파일에 명시
+
+### 2.6 소스 파일 헤더 관리
+- 소스 구현 시 필요한 헤더 추가
+- 주석으로 어떤 용도로 사용하는지 간략히 명시
+- Standard library와 GNSS library를 주석으로 구분
+
+### 2.7 헤더 가드 및 C++ 호환성
+```c
+#ifndef HEADER_NAME_H
+#define HEADER_NAME_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// 헤더 내용
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // HEADER_NAME_H
+```
+
+### 2.8 에러 처리 및 반환값
+- **성공/실패**: `int` 반환 (1: 성공, 0: 실패)
+- **포인터 반환**: `NULL` 체크 필수
+- **매개변수 검증**: 공개 함수에서는 입력 매개변수 유효성 검사
+
+### 2.9 메모리 관리
+- **할당/해제 쌍**: `InitXxx`/`FreeXxx` 함수 쌍으로 관리
+- **동적 할당**: 항상 해제 함수 제공
+- **구조체 초기화**: 모든 멤버 명시적 초기화
+
+### 2.10 순환 의존성 방지
+- `types.h` → `const.h`만 의존
+- 다른 헤더들 → `types.h` 의존
+- 복잡한 의존성은 전방 선언 활용
+
+### 2.11 컴파일러 호환성
+- C99 표준 준수
+- Windows/Mac/Linux 호환성 고려
+- 컴파일러 경고 최소화
 
 ## 3. 문서화 규칙
 
@@ -84,9 +150,9 @@ typedef struct satStr {
 - **C코드에 해당하는 마크다운 Docs 작성 필수**
 - **해당 C코드 또는 헤더에 포함된 내용만 작성 → 없는 내용은 작성 금지**
 - 제목 단계에 따라 특수문자가 아닌 숫자 다단계 이용
-- 목차와 최상위 제목은 특수문자 없이 글만 작성
+- 목차와 최상위 제목은 특수문자 없이 글만 작성(파일 명 표시를 위한 괄호는 허용)
 - 이모티콘 사용 금지
-- **인라인 수식은 `$~$` 형식** 사용 (LaTeX 호환성)
+- **인라인 수식은 `$...$` 형식** 사용 (LaTeX 호환성)
 - 내용 순서는 목차 → 기본 개념 → 데이터 타입 트리 구조 → 데이터 타입 목록 → 함수 트리 구조 → 함수 목록 → 사용 예시 → 성능 특성 순으로 작성
 - 기본 개념은 해당 코드의 구조나 방식, 특징을 기입 (수식 필요 시 적절히 사용) (예: column major 저장방식, 메모리 관리 체계, 위성 인덱스 시스템, GNSS 관측 코드 구조, 인덱스 매핑 시스템, 설계 철학 등)
 
@@ -200,31 +266,7 @@ typedef struct satStr {
 > - $\omega_e$: 지구 자전 속도
 
 
-### 3.3 함수 문서화 분리
-- **헤더 파일**: 상세한 API 문서 (args, return 포함)
-- **구현 파일**: 간단한 한 줄 주석
 
-```c
-// 헤더 파일 예시
-// -----------------------------------------------------------------------------
-// Convert satellite PRN and system index to satellite index
-//
-// args:
-//        int   sys     (I) : satellite system index
-//        int   prn     (I) : satellite PRN number
-//
-// return:
-//        int   sat     (O) : satellite index (0 if error)
-// -----------------------------------------------------------------------------
-int Prn2Sat(int sys, int prn);
-
-// 구현 파일 예시
-// Convert satellite PRN and system index to satellite index
-int Prn2Sat(int sys, int prn)
-{
-    // Implementation...
-}
-```
 
 ## 4. 코드 품질 관리
 

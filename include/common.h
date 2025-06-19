@@ -8,87 +8,12 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+// GNSS library
+#include "types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "const.h"
-#include "matrix.h"
-#include "obs.h"
-#include "option.h"
-#include "ephemeris.h"
-
-// =============================================================================
-// Macros
-// =============================================================================
-
-#define MAX_LEAPS   64                  // Maximum number of leaps table
-#define MAX_STR_LEN 64                  // Maximum number of characters in parameter string
-
-#define SAT_STR_SIZE 4                  // Number of characters in satellite string (CXX)
-#define CAL_STR_SIZE 24                 // Number of characters in calendar string (YYYY/MM/DD HH:MM:SS.sss)
-
-// =============================================================================
-// Type definition
-// =============================================================================
-
-typedef struct pcv {                    // Struct of PCV data
-    int  sat;                           // Satellite index
-    char type[MAX_STR_LEN];             // Antenna type or SV type
-    char serial[MAX_STR_LEN];           // Antenna serial number or sat ID
-    double ts;                          // Valid time start
-    double te;                          // Valid time end
-    double off[NSYS][NBAND][3];         // Phase center offset [m] (sat: xyz, rcv: enu)
-    double var[NSYS][NBAND][19];        // Phase center variation [m] (sat: 0,1,...,18, rcv: 90,85,...,0)
-} pcv_t;
-
-typedef struct pcvs {                  // Struct of PCV data set
-    int    n, nmax;                    // Number of PCV/allocated memory
-    pcv_t  *pcv;                       // PCV data
-} pcvs_t;
-
-typedef struct sta {                    // Struct of station parameter data
-    char   name   [MAX_STR_LEN];        // Marker name
-    char   marker [MAX_STR_LEN];        // Marker number
-    char   antdes [MAX_STR_LEN];        // Antenna descriptor
-    char   antsno [MAX_STR_LEN];        // Antenna serial number
-    char   rectype[MAX_STR_LEN];        // Receiver type
-    char   recsno [MAX_STR_LEN];        // Receiver serial number
-    int    antsetup;                    // Antenna setup ID
-    int    itrf;                        // ITRF realization year
-    int    deltype;                     // Antenna position delta type (0:enu, 1:xyz)
-    double pos[3];                      // Antenna position (ECEF) [m]
-    double del[3];                      // Antenna delta position [m]
-    int    glo_align;                   // GLONASS code-phase alignment (0:no, 1:yes)
-    double glo_bias[4];                 // GLONASS code-phase biases (C1C, C1P, C2C, C2P) [m]
-} sta_t;
-
-typedef struct nav {                    // Struct of navigation data
-    ephs_t    ephs[NSAT];               // Broadcast ephemeris data
-    //sp3s_t    sp3s[NSAT];               // SP3 data (TBD)
-    //dcbs_t    dcbs[NSAT];               // DCB data (TBD)
-    pcvs_t    pcvs;                     // Satellite and receiver antenna PCO and PCV parameters
-    sta_t     sta[NRCV];                // Receiver station parameters
-    double    iono[NSYS][8];            // Broadcast ionosphere model parameters
-    opt_t     *opt;                     // Processing options
-} nav_t;
-
-typedef struct satStr {                 // Struct of satellite string (CXX)
-    char str[SAT_STR_SIZE];             // Satellite string (CXX)
-} satStr_t;
-
-typedef struct cal {                    // Struct of calendar date and time
-    int    year;                        // Year
-    int    mon;                         // Month
-    int    day;                         // Day
-    int    hour;                        // Hour
-    int    min;                         // Minute
-    double sec;                         // Second
-} cal_t;
-
-typedef struct calStr {                 // Struct of calendar string (YYYY/MM/DD HH:MM:SS.sss)
-    char str[CAL_STR_SIZE];             // Calendar string
-} calStr_t;
 
 // =============================================================================
 // Global variables
@@ -145,8 +70,11 @@ static inline int Str2Sys(const char str)
 //
 // args:
 //        nav_t *nav (I,O) : navigation data struct
+//
+// return:
+//        int   info  (O) : 1 if successful, 0 if failed
 // -----------------------------------------------------------------------------
-void InitNav(nav_t *nav);
+int InitNav(nav_t *nav);
 
 // -----------------------------------------------------------------------------
 // Free navigation data struct

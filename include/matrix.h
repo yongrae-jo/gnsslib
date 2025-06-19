@@ -12,33 +12,11 @@
 extern "C" {
 #endif
 
+// Standard library
 #include <stdbool.h>    // for bool, true or false
-#include <stdint.h>     // for uint32_t
 
-// =============================================================================
-// Macros
-// =============================================================================
-
-#define MAT_ALIGNMENT 32    // Memory alignment for SIMD optimization
-
-// =============================================================================
-// Type definition
-// =============================================================================
-
-// Matrix type
-typedef enum {BOOL, INT, DOUBLE} type_t;
-
-typedef struct idx {            // Index vector type
-    int n;                      // Number of indices
-    type_t type;                // Index type (BOOL, INT)
-    void *idx;                  // Index array
-} idx_t;
-
-typedef struct mat {            // Matrix type
-    int rows, cols;             // Number of rows and columns
-    type_t type;                // Matrix data type (INT, DOUBLE)
-    void *data;                 // Matrix data
-} mat_t;
+// GNSS library
+#include "types.h"      // for type definitions
 
 // =============================================================================
 // Inline functions

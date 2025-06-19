@@ -5,8 +5,7 @@
 // Yongrae Jo, 0727ggame@sju.ac.kr
 // =============================================================================
 
-#include "common.h"
-
+// Standard library
 #ifndef _WIN32
 #include <sys/time.h>                   // for gettimeofday, struct timeval
 #endif
@@ -14,6 +13,13 @@
 #include <math.h>                       // for floor
 #include <stdio.h>                      // for sscanf, snprintf
 #include <stdlib.h>                     // for malloc, exit
+#include <string.h>                     // for memset
+
+// GNSS library
+#include "common.h"
+#include "matrix.h"                     // for matrix functions
+#include "option.h"                     // for SetDefaultOpt
+#include "obs.h"                        // for Fidx2Band, Str2Band
 
 // =============================================================================
 // Macros
@@ -63,32 +69,36 @@ typedef struct {
 // =============================================================================
 
 // GLONASS frequency channel number (FCN + 8 : must be larger than 0) (-7 <= FCN <= +6)
-static int FCN[NSAT_GLO] = {
-    +1, // PRN 1, FCN +1
-    -4, // PRN 2, FCN -4
-    +5, // PRN 3, FCN +5
-    +6, // PRN 4, FCN +6
-    +1, // PRN 5, FCN +1
-    -4, // PRN 6, FCN -4
-    +5, // PRN 7, FCN +5
-    +6, // PRN 8, FCN +6
-    -2, // PRN 9, FCN -2
-    -7, // PRN 10, FCN -7
-    +0, // PRN 11, FCN +0
-    -1, // PRN 12, FCN -1
-    -2, // PRN 13, FCN -2
-    -7, // PRN 14, FCN -7
-    +0, // PRN 15, FCN +0
-    -1, // PRN 16, FCN -1
-    +4, // PRN 17, FCN +4
-    -3, // PRN 18, FCN -3
-    +3, // PRN 19, FCN +3
-    +2, // PRN 20, FCN +2
-    +4, // PRN 21, FCN +4
-    -3, // PRN 22, FCN -3
-    +3, // PRN 23, FCN +3
-    +2, // PRN 24, FCN +2
+#if (SYS_GLO && NSAT_GLO >= 24)
+static int FCN[NSAT_GLO+1] = {
+    +1 + 8, // PRN 1, FCN +1
+    -4 + 8, // PRN 2, FCN -4
+    +5 + 8, // PRN 3, FCN +5
+    +6 + 8, // PRN 4, FCN +6
+    +1 + 8, // PRN 5, FCN +1
+    -4 + 8, // PRN 6, FCN -4
+    +5 + 8, // PRN 7, FCN +5
+    +6 + 8, // PRN 8, FCN +6
+    -2 + 8, // PRN 9, FCN -2
+    -7 + 8, // PRN 10, FCN -7
+    +0 + 8, // PRN 11, FCN +0
+    -1 + 8, // PRN 12, FCN -1
+    -2 + 8, // PRN 13, FCN -2
+    -7 + 8, // PRN 14, FCN -7
+    +0 + 8, // PRN 15, FCN +0
+    -1 + 8, // PRN 16, FCN -1
+    +4 + 8, // PRN 17, FCN +4
+    -3 + 8, // PRN 18, FCN -3
+    +3 + 8, // PRN 19, FCN +3
+    +2 + 8, // PRN 20, FCN +2
+    +4 + 8, // PRN 21, FCN +4
+    -3 + 8, // PRN 22, FCN -3
+    +3 + 8, // PRN 23, FCN +3
+    +2 + 8, // PRN 24, FCN +2
 };
+#else
+static int FCN[NSAT_GLO+1] = {0};
+#endif
 
 // WGS84 constants (avoid repeated calculation)
 static const double WGS84_E2 = FE_WGS84 * (2.0 - FE_WGS84);  // First eccentricity squared
@@ -98,11 +108,11 @@ static const int DOY[12] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 33
 
 static const cal_t UNIX0 = { 1970, 1,  1, 0, 0, 0.0 };   // Unix time reference
 static const cal_t GPST0 = { 1980, 1,  6, 0, 0, 0.0 };   // GPS time reference
-static const cal_t GST0  = { 1999, 8, 22, 0, 0, 0.0 };   // Galileo system time reference
+//static const cal_t GST0  = { 1999, 8, 22, 0, 0, 0.0 };   // Galileo system time reference (not used)
 static const cal_t BDT0  = { 2006, 1,  1, 0, 0, 0.0 };   // Beidou time reference
 
 // Leap seconds table [Calendar date when starts (UTC), Leap seconds (UTC - GPST)]
-static const leapSec_t LEAP_SECONDS[MAX_LEAPS + 1] = {
+static const leapSec_t LEAP_SECONDS[NLEAPS + 1] = {
     {{2017,1,1,0,0,0.0}, -18.0},
     {{2015,7,1,0,0,0.0}, -17.0},
     {{2012,7,1,0,0,0.0}, -16.0},
@@ -154,8 +164,11 @@ static const int BASE[NSYS] = {
 // =============================================================================
 
 // Initialize navigation data struct
-void InitNav(nav_t *nav)
+int InitNav(nav_t *nav)
 {
+    // Check if the navigation data struct is valid
+    if (!nav) return 0;
+
     // Initialize broadcast ephemeris data
     for (int i = 0; i < NSAT; i++) {
         nav->ephs[i].n = nav->ephs[i].nmax = 0;
@@ -166,13 +179,26 @@ void InitNav(nav_t *nav)
     nav->pcvs.n = nav->pcvs.nmax = 0;
     nav->pcvs.pcv = NULL;
 
+    // Initialize station parameters
+    for (int i = 0; i < NRCV; i++) {
+        memset(&nav->sta[i], 0, sizeof(sta_t));
+    }
+
+    // Initialize broadcast ionosphere model parameters
+    for (int i = 0; i < NSYS; i++) {
+        for (int j = 0; j < 8; j++) {
+            nav->iono[i][j] = 0.0;
+        }
+    }
+
     // Initialize processing options
     nav->opt = (opt_t *)malloc(sizeof(opt_t));
-    if (nav->opt == NULL) {
-        fprintf(stderr, "Error: Failed to allocate memory for processing options\n");
-        exit(1);
-    }
+    if (nav->opt == NULL) return 0;
+
+    // Set default processing options
     SetDefaultOpt(nav->opt);
+
+    return 1;
 }
 
 // Free navigation data struct
@@ -714,7 +740,7 @@ mat_t *Xyz2Llh(const mat_t *xyz)
     // Check if the input matrix is valid
     if (xyz->rows != 1 || xyz->cols != 3) return NULL;
 
-    double p = Norm(xyz);
+    double p = sqrt(SQR(MatGetD(xyz, 0, 0)) + SQR(MatGetD(xyz, 0, 1)));
     double z = MatGetD(xyz, 0, 2);
     double r = RE_WGS84;
 
@@ -1017,7 +1043,7 @@ mat_t *Dops(const mat_t *azels, double elmask)
         MatLogIdxIn(H, ridx, cidx);
 
         // Compute covariance matrix
-        Q = Mat(H->rows, H->rows, DOUBLE);
+        Q = Mat(H->cols, H->cols, DOUBLE);
         if (!Lsq(H, NULL, NULL, NULL, Q, NULL)) info = 0;
 
         // Initialize DOPs
@@ -1407,8 +1433,8 @@ mat_t *MeasVar(int sat, double el, int nf, const opt_t *opt)
 
     // Elevation dependent error variance
     for (int f = 0; f < nf; f++) {
-        MatSetD(var, 0, f, SQR(fact * opt->err / sin(el)));
-        MatSetD(var, 1, f, SQR(opt->errratio) * MatGetD(var, 0, f));
+        MatSetD(var, 0, f, SQR(fact * opt->err / sin(el)));             // Phase
+        MatSetD(var, 1, f, SQR(opt->errratio) * MatGetD(var, 0, f));    // Code
     }
 
     return var;

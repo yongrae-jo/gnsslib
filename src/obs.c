@@ -10,6 +10,7 @@
 #include "ephemeris.h"  // for GetEphType
 #include <string.h>     // for strcmp, strncpy, strchr
 #include <stdlib.h>     // for qsort
+#include <math.h>       // for fabs
 
 // =============================================================================
 // Static type definitions

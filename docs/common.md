@@ -42,7 +42,7 @@ $$\text{sat} = \text{BASE}[\text{sys}-1] + (\text{prn} - \text{MIN\_PRN}[\text{s
 위성 식별자와 시간 정보를 표준화된 문자열 형식으로 표현하여 가독성과 호환성을 보장합니다.
 
 **표준 형식**:
-- 위성: `"CXX"` (C: 시스템 코드, XX: PRN 번호)
+- 위성: `"CXX"` ($C$: 시스템 코드, $XX$: PRN 번호)
 - 시간: `"YYYY/MM/DD HH:MM:SS.sss"` (소수점 자릿수 조절 가능)
 
 ### 1.4 고급 GNSS 좌표 변환
@@ -111,7 +111,7 @@ typedef struct satStr {
 - BeiDou: `"C01"`, `"C63"`
 - QZSS: `"J01"`, `"J07"`
 - IRNSS: `"I01"`, `"I14"`
-- SBAS: `"S20"`, `"S58"`
+- SBAS: `"S120"`, `"S158"`
 
 </details>
 
@@ -163,12 +163,12 @@ typedef struct calStr {
 ```c
 typedef struct pcv {
     int    sat;                        // 위성 인덱스
-    char   type[MAX_STR_LEN];         // 안테나 타입 또는 SV 타입
-    char   serial[MAX_STR_LEN];       // 안테나 시리얼 번호 또는 위성 ID
+    char   type[STA_STR_SIZE];        // 안테나 타입 또는 SV 타입
+    char   serial[STA_STR_SIZE];      // 안테나 시리얼 번호 또는 위성 ID
     double ts;                        // 유효 시작 시간
     double te;                        // 유효 끝 시간
-    double off[NSYS][3][NBAND];       // 위상 중심 오프셋 [m]
-    double var[NSYS][19][NBAND];      // 위상 중심 변이 [m]
+    double off[NSYS][NBAND][3];       // 위상 중심 오프셋 [$m$]
+    double var[NSYS][NBAND][19];      // 위상 중심 변이 [$m$]
 } pcv_t;
 ```
 
@@ -199,19 +199,20 @@ typedef struct pcvs {
 **구조**:
 ```c
 typedef struct sta {
-    char   name[MAX_STR_LEN];      // 마커 이름
-    char   marker[MAX_STR_LEN];    // 마커 번호
-    char   antdes[MAX_STR_LEN];    // 안테나 설명
-    char   antsno[MAX_STR_LEN];    // 안테나 시리얼 번호
-    char   rectype[MAX_STR_LEN];   // 수신기 타입
-    char   recsno[MAX_STR_LEN];    // 수신기 시리얼 번호
+    char   name[STA_STR_SIZE];     // 마커 이름
+    char   marker[STA_STR_SIZE];   // 마커 번호
+    char   antdes[STA_STR_SIZE];   // 안테나 설명
+    char   antsno[STA_STR_SIZE];   // 안테나 시리얼 번호
+    char   rectype[STA_STR_SIZE];  // 수신기 타입
+    char   recsno[STA_STR_SIZE];   // 수신기 시리얼 번호
+    char   recver[STA_STR_SIZE];   // 수신기 버전
     int    antsetup;               // 안테나 설정 ID
     int    itrf;                   // ITRF 실현 년도
     int    deltype;                // 안테나 위치 델타 타입
-    double pos[3];                 // 안테나 위치 (ECEF) [m]
-    double del[3];                 // 안테나 델타 위치 [m]
+    double pos[3];                 // 안테나 위치 (ECEF) [$m$]
+    double del[3];                 // 안테나 델타 위치 [$m$]
     int    glo_align;              // GLONASS 코드-위상 정렬 여부
-    double glo_bias[4];            // GLONASS 코드-위상 바이어스 [m]
+    double glo_bias[4];            // GLONASS 코드-위상 바이어스 [$m$]
 } sta_t;
 ```
 
@@ -229,7 +230,7 @@ typedef struct nav {
     ephs_t  ephs[NSAT];     // 방송궤도력 데이터
     pcvs_t  pcvs;           // 안테나 PCO/PCV 파라미터
     sta_t   sta[NRCV];      // 수신기 정보
-    int     iono[NSYS][8];  // 이온층 모델 파라미터
+    double  iono[NSYS][8];  // 이온층 모델 파라미터
     opt_t   *opt;           // 처리 옵션
 } nav_t;
 ```
@@ -271,7 +272,7 @@ common 모듈 함수 계층
 │   │   ├── Gpst2Bdt() ───── GPS Time → BeiDou Time
 │   │   └── Bdt2Gpst() ───── BeiDou Time → GPS Time
 │   └── 기타 시간 함수
-│       ├── TimeGet() ────── 현재 시간 조회
+│       ├── TimeGet() ────── 현재 시간 조회 (GPST)
 │       └── Time2Doy() ───── 시간 → 연중 일자
 ├── GNSS 좌표 변환
 │   ├── 기본 좌표 변환
@@ -284,8 +285,18 @@ common 모듈 함수 계층
 │   └── 위성 기하
 │       ├── SatAzEl() ─────── 위성 방위각/고도각
 │       └── GeoDist() ─────── 기하거리 + Sagnac 보정
-└── GNSS 분석 함수
-    └── Dops() ────────────── DOP 값 계산
+├── GNSS 분석 함수
+│   └── Dops() ────────────── DOP 값 계산
+├── GNSS 보정 모델
+│   ├── 안테나 보정
+│   │   └── RcvAntModel() ─── 수신기 안테나 보정
+│   ├── 대류권 보정
+│   │   ├── TropoMapF() ──── 대류권 매핑함수
+│   │   └── TropoModel() ─── 대류권 지연 모델
+│   ├── 전리층 보정
+│   │   └── IonoModel() ──── 전리층 지연 모델
+│   └── 관측 오차 모델
+│       └── MeasVar() ─────── 관측값 분산 계산
 └── 인라인 유틸리티 함수
     ├── SQR() ───────────── 제곱 계산
     ├── Sys2Str() ───────── 시스템 인덱스 → 문자
@@ -308,13 +319,13 @@ common 모듈 함수 계층
 - `nav_t *nav`: 초기화할 네비게이션 구조체 포인터
 
 **출력**:
-- `void`: 반환값 없음
+- `int`: 성공 시 1, 실패 시 0
 
 **함수 로직**:
 1. 방송궤도력 데이터 배열 초기화 (각 위성별 n=0, nmax=0, eph=NULL)
 2. 안테나 보정 데이터 초기화 (n=0, nmax=0, pcv=NULL)
 3. 처리 옵션 메모리 할당 및 기본값 설정
-4. 메모리 할당 실패 시 에러 출력 후 프로그램 종료
+4. 메모리 할당 실패 시 0을 반환
 
 **사용 예시**:
 ```c
@@ -641,7 +652,7 @@ if (original_sat == converted_sat) {
 - `cal_t cal`: 달력 시간 구조체
 
 **출력**:
-- `double`: UNIX Timestamp (초), 오류 시 0.0
+- `double`: UNIX Timestamp (초), 오류 시 $0.0$
 
 **함수 로직**:
 1. 달력 유효성 검사 (년, 월, 일, 시, 분, 초 범위)
@@ -724,10 +735,10 @@ printf("UNIX Time %.3f → %04d/%02d/%02d %02d:%02d:%06.3f\n",
 
 **GNSS 수식**:
 GPS Time → UNIX Time 변환:
-$$t_{\text{UNIX}} = t_{\text{GPS0}} + \text{week} \times 604800 + \text{tow}$$
+$$t_{\text{UNIX}} = t_{\text{GPST0}} + \text{week} \times 604800 + \text{tow}$$
 
 여기서:
-- $t_{\text{GPS0}}$: GPS 기준시간 (1980/1/6 00:00:00 UTC)의 UNIX Time
+- $t_{\text{GPST0}}$: GPS 기준시간 (1980/1/6 00:00:00 UTC)의 UNIX Time
 - $604800 = 7 \times 24 \times 3600$ (1주일의 초 수)
 
 **함수 로직**:
@@ -754,7 +765,7 @@ printf("달력 시간: %04d/%02d/%02d %02d:%02d:%06.3f\n",
 // 역변환으로 검증
 int week_back;
 double tow_back = Time2Gpst(unix_time, &week_back);
-printf("역변환: 주차 %d, 주내초 %.1f\n", week_back, tow_back);
+printf("역변환: GPS Week %d, tow %.1f\n", week_back, tow_back);
 ```
 
 </details>
@@ -763,20 +774,35 @@ printf("역변환: 주차 %d, 주내초 %.1f\n", week_back, tow_back);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: UNIX Time을 GPS Time으로 변환
+**목적**: GPST를 나타내는 UNIX Timestamp를 GPS Week와 tow로 변환
 
 **입력**:
 - `double time`: UNIX Time (초)
-- `int *week`: GPS 주차를 저장할 포인터
+- `int *week`: GPS Week를 저장할 포인터
 
 **출력**:
 - `double`: 주내 초 (Time of Week)
 
 **함수 로직**:
 1. UNIX Time에서 GPS 기준시간 차이 계산
-2. 주차 계산 (차이 / (7×24×3600))
-3. 주내 초 계산 (차이 % (7×24×3600))
-4. 주차는 포인터에 저장, 주내 초는 반환
+2. GPS Week 계산 (차이 / (7×24×3600))
+3. tow 계산 (차이 % (7×24×3600))
+4. GPS Week는 포인터에 저장, tow는 반환
+
+**사용 예시**:
+```c
+// UNIX Time을 GPS Time으로 변환
+double unix_time = TimeGet();  // 현재 시간
+int gps_week;
+double gps_tow = Time2Gpst(unix_time, &gps_week);
+
+printf("UNIX Time %.3f → GPS Week: %d, tow: %.1f\n",
+       unix_time, gps_week, gps_tow);
+
+// 역변환으로 검증
+double unix_back = Gpst2Time(gps_week, gps_tow);
+printf("역변환 검증: %.3f (차이: %.6f초)\n", unix_back, unix_time - unix_back);
+```
 
 </details>
 
@@ -804,19 +830,19 @@ printf("역변환: 주차 %d, 주내초 %.1f\n", week_back, tow_back);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: UNIX Timestamp를 BeiDou Time으로 변환
+**목적**: BDT를 나타내는 UNIX Timestamp를 BDS week와 tow로 변환
 
 **입력**:
 - `double time`: UNIX Timestamp (초)
-- `int *week`: BeiDou 주차를 저장할 포인터
+- `int *week`: BDS week를 저장할 포인터
 
 **출력**:
 - `double`: 주내 초
 
 **함수 로직**:
 1. UNIX Time에서 BeiDou 기준시간 차이 계산
-2. 주차와 주내 초 분리
-3. 주차는 포인터에 저장, 주내 초는 반환
+2. BDS week와 tow 분리
+3. BDS week는 포인터에 저장, tow는 반환
 
 **사용 예시**:
 ```c
@@ -825,7 +851,7 @@ double unix_time = TimeGet();  // 현재 시간
 int bdt_week;
 double bdt_tow = Time2Bdt(unix_time, &bdt_week);
 
-printf("UNIX Time %.3f → BeiDou 주차: %d, 주내초: %.1f\n",
+printf("UNIX Time %.3f → BDS week: %d, tow: %.1f\n",
        unix_time, bdt_week, bdt_tow);
 
 // 역변환으로 검증
@@ -835,33 +861,35 @@ printf("역변환 검증: %.3f (차이: %.6f초)\n", unix_back, unix_time - unix
 
 </details>
 
-#### 5.4.7 TimeGet() - 현재 시간 조회
+#### 5.4.7 TimeGet() - 현재 시간 조회 (GPST)
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 시스템 현재 시간을 UNIX Timestamp로 조회
+**목적**: 현재 GPST를 UNIX Timestamp로 조회 (시스템 시간을 GPST 표준시간으로 직접 반환)
 
 **입력**:
 - `void`: 입력 매개변수 없음
 
 **출력**:
-- `double`: 현재 UNIX Timestamp (초)
+- `double`: 현재 GPST (UNIX Timestamp, 초)
 
 **함수 로직**:
-1. Windows: time() 함수 사용
-2. Unix/Linux: gettimeofday() 함수 사용 (마이크로초 정밀도)
+1. Windows: `time()` 함수 사용하여 시스템 UTC 시간 획득
+2. Unix/Linux: `gettimeofday()` 함수 사용 (마이크로초 정밀도)
 3. 시스템별 조건부 컴파일로 플랫폼 호환성 보장
+4. 획득한 UTC 시간을 `Utc2Gpst()` 함수를 통해 GPST로 변환하여 직접 반환
 
 **사용 예시**:
 ```c
-// 현재 시간 조회
-double current_time = TimeGet();
-printf("현재 UNIX Time: %.3f\n", current_time);
+// 현재 시간 조회 (GPST)
+double current_gpst = TimeGet();
+printf("현재 GPST (UNIX Time): %.3f\n", current_gpst);
 
-// 달력 형태로 확인
-cal_t cal = Time2Cal(current_time);
-printf("현재 시간: %04d/%02d/%02d %02d:%02d:%06.3f\n",
-       cal.year, cal.mon, cal.day, cal.hour, cal.min, cal.sec);
+// 달력 형태로 확인 (UTC)
+cal_t utc_cal = Time2Cal(Gpst2Utc(current_gpst));
+printf("현재 UTC: %04d/%02d/%02d %02d:%02d:%06.3f\n",
+       utc_cal.year, utc_cal.mon, utc_cal.day,
+       utc_cal.hour, utc_cal.min, utc_cal.sec);
 
 // 처리 시간 측정
 double start_time = TimeGet();
@@ -946,17 +974,20 @@ printf("UTC: %04d/%02d/%02d %02d:%02d:%06.3f\n",
 
 **사용 예시**:
 ```c
-// UTC를 GPS Time으로 변환
-double utc_time = TimeGet();  // 현재 UTC 시간
-double gps_time = Utc2Gpst(utc_time);
+// GPST를 UTC로 변환한 후 다시 GPS Time으로 변환 (검증 목적)
+double current_gpst = TimeGet();  // 현재 GPST
+double utc_time = Gpst2Utc(current_gpst);  // GPST → UTC
+double gps_time = Utc2Gpst(utc_time);      // UTC → GPST
 
+printf("원본 GPST: %.3f\n", current_gpst);
 printf("UTC Time: %.3f\n", utc_time);
-printf("GPS Time: %.3f\n", gps_time);
-printf("윤초 보정: %.1f초\n", gps_time - utc_time);
+printf("변환된 GPST: %.3f\n", gps_time);
+printf("차이: %.6f초\n", current_gpst - gps_time);
 
-// 역변환으로 검증
-double utc_back = Gpst2Utc(gps_time);
-printf("역변환 검증: %.3f (차이: %.6f초)\n", utc_back, utc_time - utc_back);
+// 직접 UTC → GPST 변환
+double system_utc = time(NULL);  // 시스템 UTC
+double gpst_converted = Utc2Gpst(system_utc);
+printf("시스템 UTC %.3f → GPST: %.3f\n", system_utc, gpst_converted);
 ```
 
 </details>
@@ -992,8 +1023,8 @@ int gps_week, bdt_week;
 double gps_tow = Time2Gpst(gps_time, &gps_week);
 double bdt_tow = Time2Bdt(bdt_time, &bdt_week);
 
-printf("GPS: 주차 %d, 주내초 %.1f\n", gps_week, gps_tow);
-printf("BeiDou: 주차 %d, 주내초 %.1f\n", bdt_week, bdt_tow);
+printf("GPS: GPS Week %d, tow %.1f\n", gps_week, gps_tow);
+printf("BDS: BDS week %d, tow %.1f\n", bdt_week, bdt_tow);
 ```
 
 </details>
@@ -1015,13 +1046,15 @@ printf("BeiDou: 주차 %d, 주내초 %.1f\n", bdt_week, bdt_tow);
 
 **사용 예시**:
 ```c
-// BeiDou Time을 GPS Time으로 변환
-double bdt_time = TimeGet();  // 현재 BeiDou Time
-double gps_time = Bdt2Gpst(bdt_time);
+// BeiDou Time을 GPS Time으로 변환 (GPST 기준)
+double current_gpst = TimeGet();  // 현재 GPST
+double bdt_time = Gpst2Bdt(current_gpst);  // GPST → BeiDou Time
+double gps_time = Bdt2Gpst(bdt_time);      // BeiDou Time → GPST
 
+printf("원본 GPST: %.3f\n", current_gpst);
 printf("BeiDou Time: %.3f\n", bdt_time);
-printf("GPS Time: %.3f\n", gps_time);
-printf("시간 차이: %.1f초\n", gps_time - bdt_time);
+printf("변환된 GPST: %.3f\n", gps_time);
+printf("BDT-GPST 시간차: %.1f초\n", current_gpst - bdt_time);
 
 // 역변환으로 검증
 double bdt_back = Gpst2Bdt(gps_time);
@@ -1040,19 +1073,20 @@ printf("역변환 검증: %.3f (차이: %.6f초)\n", bdt_back, bdt_time - bdt_ba
 - `double time`: UNIX Timestamp (초)
 
 **출력**:
-- `int`: 연중 일자 (1~366)
+- `int`: 연중 일자 (1~366), 오류 시 -1
 
 **함수 로직**:
-1. UNIX Time을 달력으로 변환 (Time2Cal 호출)
+1. UNIX Time을 달력으로 변환 (`Time2Cal` 호출)
 2. 해당 년도의 1월 1일부터 일수 계산
 3. 윤년 고려하여 정확한 연중 일자 반환
+4. `Time2Cal`이 유효하지 않은 달력을 반환하면 -1을 반환
 
 **사용 예시**:
 ```c
 // 현재 시간의 연중 일자 계산
-double current_time = TimeGet();
-int doy = Time2Doy(current_time);
-cal_t cal = Time2Cal(current_time);
+double current_gpst = TimeGet();
+int doy = Time2Doy(current_gpst);
+cal_t cal = Time2Cal(current_gpst);
 
 printf("현재 시간: %04d/%02d/%02d\n", cal.year, cal.mon, cal.day);
 printf("연중 일자: %d일째\n", doy);
@@ -1132,12 +1166,13 @@ for (int i = 0; i < 3; i++) {
 - `int dec`: 소수점 자릿수 (0~3)
 
 **출력**:
-- `calStr_t`: 달력 문자열 구조체
+- `calStr_t`: 달력 문자열 구조체. 유효성 검사 실패 시 "0000/00/00 00:00:00.000" 반환
 
 **함수 로직**:
 1. 달력 유효성 검사
-2. snprintf를 사용하여 지정된 포맷으로 문자열 생성
+2. `snprintf`를 사용하여 지정된 포맷으로 문자열 생성
 3. 소수점 자릿수에 따른 초 포맷팅
+4. 유효성 검사 실패 시 기본 형식의 0 값 문자열 반환
 
 **사용 예시**:
 ```c
@@ -1151,15 +1186,15 @@ for (int dec = 0; dec <= 3; dec++) {
 }
 
 // 현재 시간을 문자열로 변환
-double current_time = TimeGet();
-cal_t current_cal = Time2Cal(current_time);
+double current_gpst = TimeGet();
+cal_t current_cal = Time2Cal(current_gpst);
 calStr_t current_str = Cal2Str(current_cal, 3);
 printf("현재 시간: %s\n", current_str.str);
 
 // 역변환으로 검증
 cal_t cal_back = Str2Cal(current_str);
 double time_back = Cal2Time(cal_back);
-printf("역변환 검증: %.6f초 차이\n", current_time - time_back);
+printf("역변환 검증: %.6f초 차이\n", current_gpst - time_back);
 ```
 
 </details>
@@ -1173,21 +1208,21 @@ printf("역변환 검증: %.6f초 차이\n", current_time - time_back);
 **목적**: WGS84 타원체 기반 ECEF 좌표를 지리좌표로 변환
 
 **입력**:
-- `const mat_t *xyz`: ECEF 좌표 (1×3) [m]
+- `const mat_t *xyz`: ECEF 좌표 (1×3) [$m$]
 
 **출력**:
-- `mat_t *llh`: 지리좌표 (1×3) [rad, rad, m] (오류 시 NULL)
+- `mat_t *llh`: 지리좌표 (1×3) [$\text{rad}, \text{rad}, m$] (오류 시 `NULL`)
 
 **GNSS 수식**:
-WGS84 타원체 좌표 변환 (개선된 반복 알고리즘):
+WGS84 타원체 좌표 변환 (일반적인 위도 반복 수렴방식):
 
 초기값:
-$$p = \|\boldsymbol{r}\| = \sqrt{x^2 + y^2 + z^2}$$
-$$L_0 = \frac{z}{1 - e^2}$$
+$$p = \sqrt{x^2 + y^2}$$
+$$L_0 = \frac{z}{1-e^2}$$
 
-반복 계산 ($|L - L_0| \geq 10^{-4}$까지):
+반복 계산 ($|L-L_0| \geq 10^{-4}$까지):
 $$\sin\phi = \frac{L_0}{\sqrt{p^2 + L_0^2}}$$
-$$N = \frac{a}{\sqrt{1 - e^2\sin^2\phi}}$$
+$$N = \frac{a}{\sqrt{1-e^2\sin^2\phi}}$$
 $$L = z + e^2 \cdot N \cdot \sin\phi$$
 
 최종 결과:
@@ -1196,7 +1231,7 @@ $$\lambda = \arctan2(y, x)$$
 $$h = \sqrt{L^2 + p^2} - N$$
 
 여기서:
-- $e^2 = \text{WGS84\_E2} = FE\_WGS84 \cdot (2 - FE\_WGS84)$
+- $e^2 = \text{WGS84\_E2} = \text{FE\_WGS84} \cdot (2 - \text{FE\_WGS84})$
 - $a = \text{RE\_WGS84}$ (WGS84 장반축)
 - 특수 경우: $p \leq 10^{-12}$일 때 $\phi = \pm\pi/2$, $\lambda = 0$
 
@@ -1214,22 +1249,22 @@ $$h = \sqrt{L^2 + p^2} - N$$
 **목적**: 지리좌표를 WGS84 ECEF 좌표로 변환
 
 **입력**:
-- `const mat_t *llh`: 지리좌표 (1×3) [rad, rad, m]
+- `const mat_t *llh`: 지리좌표 (1×3) [$\text{rad}, \text{rad}, m$]
 
 **출력**:
-- `mat_t *xyz`: ECEF 좌표 (1×3) [m] (오류 시 NULL)
+- `mat_t *xyz`: ECEF 좌표 (1×3) [$m$] (오류 시 `NULL`)
 
 **GNSS 수식**:
 WGS84 지리좌표 → ECEF 변환:
-$$x = (N + h) \cos\phi \cos\lambda$$
-$$y = (N + h) \cos\phi \sin\lambda$$
-$$z = (N(1-e^2) + h) \sin\phi$$
+$$x = (N+h)\cos\phi\cos\lambda$$
+$$y = (N+h)\cos\phi\sin\lambda$$
+$$z = (N(1-e^2)+h)\sin\phi$$
 
 여기서:
 - $N = \frac{a}{\sqrt{1-e^2\sin^2\phi}}$ (자오선 곡률반지름)
-- $\phi$: 위도 [rad]
-- $\lambda$: 경도 [rad]
-- $h$: 타원체고 [m]
+- $\phi$: 위도 [$\text{rad}$]
+- $\lambda$: 경도 [$\text{rad}$]
+- $h$: 타원체고 [$m$]
 
 **함수 로직**:
 - WGS84 타원체 매개변수 적용
@@ -1274,10 +1309,10 @@ FreeMat(llh); FreeMat(xyz);
 **목적**: ECEF 좌표에서 ENU 지역좌표로 변환하는 회전행렬 생성
 
 **입력**:
-- `const mat_t *xyz`: ECEF 좌표 (1×3) [m]
+- `const mat_t *xyz`: ECEF 좌표 (1×3) [$m$]
 
 **출력**:
-- `mat_t *rot`: 회전행렬 (3×3) (오류 시 NULL)
+- `mat_t *rot`: 회전행렬 (3×3) (오류 시 `NULL`)
 
 **함수 로직**:
 - 먼저 LLH 좌표로 변환
@@ -1325,11 +1360,11 @@ FreeMat(xyz); FreeMat(rot);
 **목적**: ECEF 좌표를 지역 ENU 좌표로 변환
 
 **입력**:
-- `const mat_t *xyz`: ECEF 좌표 (1×3) [m]
-- `const mat_t *org`: 원점 ECEF 좌표 (1×3) [m]
+- `const mat_t *xyz`: ECEF 좌표 (1×3) [$m$]
+- `const mat_t *org`: 원점 ECEF 좌표 (1×3) [$m$]
 
 **출력**:
-- `mat_t *enu`: ENU 지역좌표 (1×3) [m] (오류 시 NULL)
+- `mat_t *enu`: ENU 지역좌표 (1×3) [$m$] (오류 시 `NULL`)
 
 **함수 로직**:
 - 원점 기준 ECEF 벡터 계산
@@ -1382,11 +1417,11 @@ FreeMat(origin); FreeMat(sat_pos); FreeMat(enu);
 **목적**: 지역 ENU 좌표를 ECEF 좌표로 변환
 
 **입력**:
-- `const mat_t *enu`: ENU 지역좌표 (1×3) [m]
-- `const mat_t *org`: 원점 ECEF 좌표 (1×3) [m]
+- `const mat_t *enu`: ENU 지역좌표 (1×3) [$m$]
+- `const mat_t *org`: 원점 ECEF 좌표 (1×3) [$m$]
 
 **출력**:
-- `mat_t *xyz`: ECEF 좌표 (1×3) [m] (오류 시 NULL)
+- `mat_t *xyz`: ECEF 좌표 (1×3) [$m$] (오류 시 `NULL`)
 
 **함수 로직**:
 - 회전행렬의 전치행렬 사용
@@ -1443,21 +1478,21 @@ FreeMat(origin); FreeMat(enu); FreeMat(xyz);
 **목적**: 수신기에서 본 위성의 방위각과 고도각 계산
 
 **입력**:
-- `const mat_t *rs`: 위성 위치 (1×3) [m]
-- `const mat_t *rr`: 수신기 위치 (1×3) [m]
+- `const mat_t *rs`: 위성 위치 (1×3) [$m$]
+- `const mat_t *rr`: 수신기 위치 (1×3) [$m$]
 
 **출력**:
-- `mat_t *azel`: 방위각/고도각 (1×2) [rad, rad] (오류 시 NULL)
+- `mat_t *azel`: 방위각/고도각 (1×2) [$\text{rad}, \text{rad}$] (오류 시 `NULL`)
 
 **GNSS 수식**:
 ENU 지역좌표에서 방위각/고도각 계산:
-$$\text{방위각: } az = \arctan2(E, N)$$
-$$\text{고도각: } el = \arctan2(U, \sqrt{E^2 + N^2})$$
+$$\text{az} = \arctan2(E, N)$$
+$$\text{el} = \arctan2(U, \sqrt{E^2+N^2})$$
 
 여기서 ENU 좌표는:
-$$\begin{bmatrix} E \\ N \\ U \end{bmatrix} = \mathbf{R} \begin{bmatrix} x^s - x_r \\ y^s - y_r \\ z^s - z_r \end{bmatrix}$$
+$$\begin{bmatrix} E \\ N \\ U \end{bmatrix} = \mathbf{R}\begin{bmatrix} x^s-x_r \\ y^s-y_r \\ z^s-z_r \end{bmatrix}$$
 
-회전행렬 $\mathbf{R}$:
+회전행렬 $\mathbf{R}$는:
 $$\mathbf{R} = \begin{bmatrix}
 -\sin\lambda & \cos\lambda & 0 \\
 -\sin\phi\cos\lambda & -\sin\phi\sin\lambda & \cos\phi \\
@@ -1465,10 +1500,10 @@ $$\mathbf{R} = \begin{bmatrix}
 \end{bmatrix}$$
 
 **함수 로직**:
-- 수신기 위치가 원점인 경우: 방위각 0, 고도각 π/2 반환
+- 수신기 위치가 원점인 경우: 방위각 0, 고도각 $\pi/2$ 반환
 - ENU 좌표로 변환 후 구면좌표 계산
-- 방위각: `atan2(E, N)` → 0~2π 범위 정규화
-- 고도각: `atan2(U, sqrt(E²+N²))` → -π/2~π/2 범위
+- 방위각: `atan2(E, N)` → $0\text{ ~ }2\pi$ 범위 정규화
+- 고도각: `atan2(U, sqrt(E²+N²))` → $-\pi/2\text{ ~ }\pi/2$ 범위
 
 **사용 예시**:
 ```c
@@ -1512,22 +1547,22 @@ FreeMat(sat_pos); FreeMat(rcv_pos); FreeMat(azel);
 **목적**: 위성-수신기 간 기하거리 및 Sagnac 효과 보정 계산
 
 **입력**:
-- `const mat_t *rs`: 위성 위치 (1×3) [m]
-- `const mat_t *rr`: 수신기 위치 (1×3) [m]
+- `const mat_t *rs`: 위성 위치 (1×3) [$m$]
+- `const mat_t *rr`: 수신기 위치 (1×3) [$m$]
 - `mat_t *e`: (선택적) 시선벡터 (1×3) (ECEF)
 
 **출력**:
-- `double`: 보정된 거리 [m] (오류 시 0.0)
+- `double`: 보정된 거리 [$m$] (오류 시 $0.0$)
 
 **GNSS 수식**:
 Sagnac 효과 보정이 적용된 기하거리:
-$$\rho = \sqrt{(x^s - x_r)^2 + (y^s - y_r)^2 + (z^s - z_r)^2} + \frac{\omega_e}{c}(x^s y_r - x_r y^s)$$
+$$\rho = \sqrt{(x^s-x_r)^2 + (y^s-y_r)^2 + (z^s-z_r)^2} + \frac{\omega_e}{c}(x^s y_r - x_r y^s)$$
 
 여기서:
-- $\boldsymbol{r}^s = [x^s, y^s, z^s]^T$: 위성 위치벡터 [m]
-- $\boldsymbol{r}_r = [x_r, y_r, z_r]^T$: 수신기 위치벡터 [m]
-- $\omega_e = 7.2921151467 \times 10^{-5}$ rad/s (지구 자전각속도)
-- $c = 299792458.0$ m/s (광속)
+- $\boldsymbol{r}^s = [x^s, y^s, z^s]^{\top}$: 위성 위치벡터 [$m$]
+- $\boldsymbol{r}_r = [x_r, y_r, z_r]^{\top}$: 수신기 위치벡터 [$m$]
+- $\omega_e = 7.2921151467 \times 10^{-5} ~\text{rad}/s$ (지구 자전각속도)
+- $c = 299792458.0 ~m/s$ (광속)
 
 시선벡터 (단위벡터):
 $$\boldsymbol{e} = \frac{\boldsymbol{r}^s - \boldsymbol{r}_r}{|\boldsymbol{r}^s - \boldsymbol{r}_r|}$$
@@ -1590,11 +1625,11 @@ FreeMat(sat_pos); FreeMat(rcv_pos); FreeMat(los_vector);
 **목적**: 위성 기하를 기반으로 DOP(Dilution of Precision) 값들 계산
 
 **입력**:
-- `const mat_t *azels`: 방위각/고도각 배열 (n×2) [rad, rad]
-- `double elmask`: 고도각 마스크 [rad]
+- `const mat_t *azels`: 방위각/고도각 배열 ($n \times 2$) [$\text{rad}, \text{rad}$]
+- `double elmask`: 고도각 마스크 [$\text{rad}$]
 
 **출력**:
-- `mat_t *dops`: DOP 값들 (1×5) [GDOP, PDOP, HDOP, VDOP, TDOP] (오류 시 NULL)
+- `mat_t *dops`: DOP 값들 (1×5) [GDOP, PDOP, HDOP, VDOP, TDOP] (오류 시 `NULL`)
 
 **GNSS 수식**:
 설계행렬 $\mathbf{H}$를 다음과 같이 구성:
@@ -1615,10 +1650,10 @@ DOP 값들:
 - $\text{TDOP} = \sqrt{q_{44}}$ (시간)
 
 **함수 로직**:
-- 고도각 마스크 적용하여 가시 위성 선별 (el > elmask)
-- 설계행렬 H 구성 및 논리 인덱싱으로 마스크된 위성 제거
-- Lsq 함수로 공분산 행렬 Q 계산
-- Q의 대각선 원소들로 DOP 값들 직접 계산
+- 고도각 마스크 적용하여 가시 위성 선별 ($el > elmask$)
+- 가시 위성만으로 설계행렬 $\mathbf{H}$ 구성
+- $\mathbf{Q} = (\mathbf{H}^T\mathbf{H})^{-1}$ 계산
+- $\mathbf{Q}$의 대각선 원소들로 DOP 값들 직접 계산
 
 **사용 예시**:
 ```c
@@ -1669,9 +1704,338 @@ FreeMat(azels); FreeMat(dops);
 
 </details>
 
-### 5.7 인라인 유틸리티 함수
+### 5.7 GNSS 보정 모델 함수
 
-#### 5.7.1 SQR() - 제곱 계산
+#### 5.7.1 RcvAntModel() - 수신기 안테나 보정
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 수신기 안테나 위상중심 보정값 계산
+
+**입력**:
+- `int sat`: 위성 인덱스 (1~NSAT)
+- `const mat_t *azel`: 방위각/고도각 (1×2) [$\text{rad}, \text{rad}$]
+- `int nf`: 주파수 개수
+- `const pcv_t *pcv`: 안테나 보정 파라미터
+
+**출력**:
+- `mat_t *dant`: 안테나 보정값 ($1 \times \text{nf}$) [$m$] (오류 시 `NULL`)
+
+**GNSS 수식**:
+안테나 위상중심 보정 계산:
+$$\delta_{\text{ant}} = -\boldsymbol{e}^{\top} \cdot \boldsymbol{off} + var(\theta)$$
+
+여기서:
+- $\boldsymbol{e} = [\sin az \cdot \cos el, \cos az \cdot \cos el, \sin el]^{\top}$: 시선벡터
+- $\boldsymbol{off}$: 위상중심 오프셋 벡터 [$m$]
+- $var(\theta)$: 천정각 기반 위상중심 변이 [$m$]
+- $\theta = 90° - el$: 천정각 [도]
+
+천정각 기반 보간:
+$$var(\theta) = \text{interpolate}(\theta_0, var_0, \theta)$$
+
+$\theta_0 = [0°, 5°, 10°, ..., 90°]$ (19개 값)
+
+**함수 로직**:
+1. 시선벡터 계산 (방위각/고도각 → 단위벡터)
+2. 시스템별/주파수별 안테나 매개변수 적용
+3. 위상중심 오프셋(PCO) + 위상중심 변이(PCV) 보정 계산
+4. GPS 안테나 매개변수를 다른 시스템 기본값으로 사용
+
+**사용 예시**:
+```c
+// 위성 인덱스와 방위각/고도각
+int sat = Prn2Sat(1, 5);  // GPS PRN 5
+mat_t *azel = Mat(1, 2, DOUBLE);
+MatSetD(azel, 0, 0, 45.0 * D2R);   // 방위각 45도
+MatSetD(azel, 0, 1, 30.0 * D2R);   // 고도각 30도
+
+// 안테나 보정값 계산 (2개 주파수)
+int nf = 2;
+mat_t *dant = RcvAntModel(sat, azel, nf, &nav.pcvs.pcv[0]);
+if (dant) {
+    printf("L1 안테나 보정: %.3f mm\n", MatGetD(dant, 0, 0) * 1000);
+    printf("L2 안테나 보정: %.3f mm\n", MatGetD(dant, 0, 1) * 1000);
+}
+
+FreeMat(azel); FreeMat(dant);
+```
+
+</details>
+
+#### 5.7.2 TropoMapF() - 대류권 매핑함수
+<details>
+<summary>상세 설명</summary>
+
+**목적**: Niell 매핑함수를 이용한 대류권 지연 매핑함수 계산
+
+**입력**:
+- `double time`: UNIX Timestamp (초)
+- `const mat_t *llh`: 지리좌표 (1×3) [$\text{rad}, \text{rad}, m$]
+- `const mat_t *azel`: 방위각/고도각 (1×2) [$\text{rad}, \text{rad}$]
+
+**출력**:
+- `mat_t *mapf`: 매핑함수 (1×2) [건조, 습윤] (오류 시 `NULL`)
+
+**GNSS 수식**:
+Niell 매핑함수:
+$$mf(el) = \frac{1 + \frac{a}{1 + \frac{b}{1 + c}}}{\sin el + \frac{a}{\sin el + \frac{b}{\sin el + c}}}$$
+
+계절 및 위도 변화를 반영한 계수 보간:
+$$c(\phi, \text{doy}) = c_{\text{avg}}(\phi) - c_{\text{amp}}(\phi) \cdot \cos\left(2\pi \frac{\text{doy} - 28}{365.25}\right)$$
+
+- 남반구의 경우, 위상차를 보정하기 위해 연중 일자에 1년의 절반을 더하여 계산합니다.
+
+타원체고 보정:
+$$\delta mf = \left(\frac{1}{\sin el} - mf_{\text{ref}}(el)\right) \cdot \frac{h}{1000}$$
+
+여기서:
+- $el$: 고도각 [$\text{rad}$]
+- $\phi$: 위도 [도]
+- $a, b, c$: Niell 매핑함수 계수 ($c_{\text{avg}}, c_{\text{amp}}$ 등)
+- $\text{doy}$: 연중 일자
+- $h$: 타원체고 [$m$]
+
+**함수 로직**:
+1. Niell 매핑함수 계수를 위도별로 보간
+2. 계절 변화(연중 일자)와 남반구 위상차를 고려한 보정
+3. 타원체고를 고려한 추가 보정
+4. 건조/습윤 성분별 매핑함수 반환
+5. 고도각이 매우 낮은 경우 ($< 10^{-6} \text{ rad}$) `NULL`을 반환
+
+**사용 예시**:
+```c
+// 위치와 위성 정보
+mat_t *llh = Mat(1, 3, DOUBLE);
+MatSetD(llh, 0, 0, 37.5665 * D2R);  // 위도 [rad]
+MatSetD(llh, 0, 1, 126.9780 * D2R); // 경도 [rad]
+MatSetD(llh, 0, 2, 100.0);          // 높이 [m]
+
+mat_t *azel = Mat(1, 2, DOUBLE);
+MatSetD(azel, 0, 1, 30.0 * D2R);    // 고도각 30도
+
+// 대류권 매핑함수 계산
+double time = TimeGet();
+mat_t *mapf = TropoMapF(time, llh, azel);
+if (mapf) {
+    printf("건조 매핑함수: %.3f\n", MatGetD(mapf, 0, 0));
+    printf("습윤 매핑함수: %.3f\n", MatGetD(mapf, 0, 1));
+}
+
+FreeMat(llh); FreeMat(azel); FreeMat(mapf);
+```
+
+</details>
+
+#### 5.7.3 TropoModel() - 대류권 지연 모델
+<details>
+<summary>상세 설명</summary>
+
+**목적**: Saastamoinen 모델을 이용한 대류권 지연 계산
+
+**입력**:
+- `double time`: UNIX Timestamp (초)
+- `const mat_t *llh`: 지리좌표 (1×3) [$\text{rad}, \text{rad}, m$]
+- `const mat_t *azel`: 방위각/고도각 (1×2) [$\text{rad}, \text{rad}$]
+- `double humi`: 상대습도 (0.0~1.0)
+
+**출력**:
+- `mat_t *tropo`: 대류권 지연 (1×2) [지연값, 분산] [$m, m^2$] (오류 시 `NULL`)
+
+**GNSS 수식**:
+Saastamoinen 대류권 지연 모델:
+$$\Delta_{\text{tropo}} = \Delta_{\text{dry}} \cdot mf_{\text{dry}} + \Delta_{\text{wet}} \cdot mf_{\text{wet}}$$
+
+건조 성분 천정지연:
+$$\Delta_{\text{dry}} = \frac{0.0022768 \cdot P}{1 - 0.00266 \cos(2\phi) - 0.00028 \cdot h/1000}$$
+
+습윤 성분 천정지연:
+$$\Delta_{\text{wet}} = 0.002277 \cdot \left(\frac{1255}{T} + 0.05\right) \cdot e$$
+
+표준대기 모델:
+$$P = 1013.25 \cdot \left(1 - 2.2557 \times 10^{-5} \cdot h\right)^{5.2568}$$
+$$T = 15 - 0.0065 \cdot h + 273.16$$
+$$e = 6.108 \cdot \text{RH} \cdot \exp\left(\frac{17.15 \cdot T - 4684.0}{T - 38.45}\right)$$
+
+여기서:
+- $P$: 기압 [$hPa$]
+- $T$: 온도 [$K$]
+- $e$: 수증기압 [$hPa$]
+- $\phi$: 위도 [$\text{rad}$]
+- $h$: 높이 [$m$]
+- $\text{RH}$: 상대습도 (0~1)
+
+**함수 로직**:
+1. 표준대기 모델로 기압/온도/수증기압 계산
+2. 건조/습윤 성분별 천정지연 계산
+3. 매핑함수 적용하여 경사지연 계산
+4. 지연값과 분산을 함께 반환
+
+**사용 예시**:
+```c
+// 대류권 지연 계산 (습도 70%)
+double humidity = 0.7;
+mat_t *tropo = TropoModel(time, llh, azel, humidity);
+if (tropo) {
+    double delay = MatGetD(tropo, 0, 0);     // 지연값 [m]
+    double var = MatGetD(tropo, 0, 1);       // 분산 [m²]
+    double std = sqrt(var);                  // 표준편차 [m]
+
+    printf("대류권 지연: %.3f m\n", delay);
+    printf("표준편차: %.3f m\n", std);
+}
+
+FreeMat(tropo);
+```
+
+</details>
+
+#### 5.7.4 IonoModel() - 전리층 지연 모델
+<details>
+<summary>상세 설명</summary>
+
+**목적**: Klobuchar 모델을 이용한 전리층 지연 계산
+
+**입력**:
+- `double time`: UNIX Timestamp (초)
+- `const mat_t *llh`: 지리좌표 (1×3) [$\text{rad}, \text{rad}, m$]
+- `const mat_t *azel`: 방위각/고도각 (1×2) [$\text{rad}, \text{rad}$]
+- `const mat_t *param`: 전리층 매개변수 (1×8) (`NULL` 가능)
+
+**출력**:
+- `mat_t *iono`: 전리층 지연 (1×2) [지연값, 분산] [$m, m^2$] (오류 시 `NULL`)
+
+**GNSS 수식**:
+Klobuchar 전리층 지연 모델:
+$$\Delta_{\text{iono}} = c \cdot F \cdot \left(5 \times 10^{-9} + A \cdot \left(1 - \frac{x^2}{2} + \frac{x^4}{24}\right)\right)$$
+
+여기서 $|x| < 1.57$, 그렇지 않으면 $\Delta_{\text{iono}} = c \cdot F \cdot 5 \times 10^{-9}$
+
+지구중심각 및 subionospheric 좌표:
+$$\psi = \frac{0.0137}{el/\pi + 0.11} - 0.022$$
+$$\phi_i = \phi_u/\pi + \psi \cos(az)$$
+$$\lambda_i = \lambda_u/\pi + \frac{\psi \sin(az)}{\cos(\phi_i \pi)}$$
+
+기하학적 위도:
+$$\phi_m = \phi_i + 0.064 \cos((\lambda_i - 1.617)\pi)$$
+
+지역시간 및 위상각:
+$$t = 43200 \lambda_i + \text{TOW} \pmod{86400}$$
+$$x = \frac{2\pi(t - 50400)}{\text{PER}}$$
+
+진폭(A = AMP) 및 주기(PER) 계산:
+$$A = \text{AMP} = \alpha_0 + \alpha_1 \phi_m + \alpha_2 \phi_m^2 + \alpha_3 \phi_m^3$$
+$$\text{PER} = \beta_0 + \beta_1 \phi_m + \beta_2 \phi_m^2 + \beta_3 \phi_m^3$$
+
+경사인자:
+$$F = 1 + 16(0.53 - el/\pi)^3$$
+
+여기서:
+- $c$: 광속 [$m/s$]
+- $el$: 고도각 [$\text{rad}$]
+- $az$: 방위각 [$\text{rad}$]
+- $\phi_u, \lambda_u$: 사용자 위도/경도 [$\text{rad}$]
+- $\text{TOW}$: GPS 주내 초 [$s$]
+- $\alpha_i, \beta_i$: Klobuchar 계수
+- $A = \text{AMP}$: 전리층 지연의 진폭 [$s$] (코사인 함수 항의 계수)
+- $\text{PER}$: 전리층 지연의 주기 [$s$] (일일 변화 주기)
+- $x$: 위상각 [$\text{rad}$] (AMP와 PER로 계산된 일일 변화의 위상)
+
+**함수 로직**:
+1. 전리층 천정각 및 subionospheric 좌표 계산
+2. 위도 기반 AMP(진폭)와 PER(주기) 계산
+3. 지역시간으로 위상각 x 계산하여 일일 변화 모델링
+4. 경사인자 적용하여 경사지연 계산
+5. GPS 방송 매개변수 또는 기본값 사용
+
+**사용 예시**:
+```c
+// 전리층 지연 계산 (GPS 방송 매개변수 사용)
+mat_t *iono_param = Mat(1, 8, DOUBLE);
+// ... GPS 방송 매개변수 설정 ...
+
+mat_t *iono = IonoModel(time, llh, azel, iono_param);
+if (iono) {
+    double delay = MatGetD(iono, 0, 0);      // 지연값 [m]
+    double var = MatGetD(iono, 0, 1);        // 분산 [m²]
+
+    printf("전리층 지연: %.3f m\n", delay);
+    printf("분산: %.6f m²\n", var);
+}
+
+FreeMat(iono_param); FreeMat(iono);
+```
+
+</details>
+
+#### 5.7.5 MeasVar() - 관측값 분산 계산
+<details>
+<summary>상세 설명</summary>
+
+**목적**: 위성 시스템별/고도각별 관측값 오차 분산 계산
+
+**입력**:
+- `int sat`: 위성 인덱스 (1~NSAT)
+- `double el`: 고도각 [$\text{rad}$]
+- `int nf`: 주파수 개수
+- `const opt_t *opt`: 처리 옵션
+
+**출력**:
+- `mat_t *var`: 오차 분산 ($2 \times \text{nf}$) [위상, 코드] [$m^2, m^2$] (오류 시 `NULL`)
+
+**GNSS 수식**:
+고도각 기반 관측값 오차 분산 모델:
+$$\sigma_L^2 = \left(\frac{\text{fact} \cdot \text{err}}{\sin el}\right)^2$$
+$$\sigma_C^2 = \text{errratio}^2 \cdot \sigma_L^2$$
+
+여기서:
+- $\sigma_L^2$: 위상 관측값 분산 [$m^2$] (행 0)
+- $\sigma_C^2$: 코드 관측값 분산 [$m^2$] (행 1)
+- $\text{fact}$: 시스템별 오차인자
+- $\text{err}$: 기준 관측 오차 [$m$] (`opt->err`)
+- $\text{errratio}$: 위상/코드 오차비율 (`opt->errratio`)
+- $el$: 고도각 [$\text{rad}$]
+
+시스템별 오차인자:
+$$\text{fact} = \begin{cases}
+\text{ERR\_FACTOR\_GPS} & \text{if GPS} \\
+\text{ERR\_FACTOR\_GLO} & \text{if GLONASS} \\
+\text{ERR\_FACTOR\_GAL} & \text{if Galileo} \\
+\text{ERR\_FACTOR\_BDS} & \text{if BeiDou} \\
+\text{ERR\_FACTOR\_QZS} & \text{if QZSS} \\
+\text{ERR\_FACTOR\_IRN} & \text{if IRNSS} \\
+\text{ERR\_FACTOR\_SBS} & \text{if SBAS}
+\end{cases}$$
+
+**함수 로직**:
+1. 위성 시스템별 오차인자 적용
+2. 위상 관측값 분산을 먼저 계산 ($~1/\sin(el)~$ 모델)
+3. 코드 관측값 분산을 위상 분산에 errratio² 곱해서 계산
+4. 주파수별 분산 행렬 반환 (행 0: 위상, 행 1: 코드)
+
+**사용 예시**:
+```c
+// 관측값 오차 분산 계산
+int sat = Prn2Sat(1, 5);     // GPS PRN 5
+double el = 30.0 * D2R;      // 고도각 30도
+int nf = 2;                  // L1, L2 주파수
+
+mat_t *var = MeasVar(sat, el, nf, &nav.opt);
+if (var) {
+    printf("L1 위상 표준편차: %.3f mm\n", sqrt(MatGetD(var, 0, 0)) * 1000);
+    printf("L1 코드 표준편차: %.3f m\n", sqrt(MatGetD(var, 1, 0)));
+    printf("L2 위상 표준편차: %.3f mm\n", sqrt(MatGetD(var, 0, 1)) * 1000);
+    printf("L2 코드 표준편차: %.3f m\n", sqrt(MatGetD(var, 1, 1)));
+}
+
+FreeMat(var);
+```
+
+</details>
+
+### 5.8 인라인 유틸리티 함수
+
+#### 5.8.1 SQR() - 제곱 계산
 <details>
 <summary>상세 설명</summary>
 
@@ -1681,9 +2045,9 @@ FreeMat(azels); FreeMat(dops);
 - `double x`: 제곱할 값
 
 **출력**:
-- `double`: x의 제곱 (x²)
+- `double`: $x^2$
 
-**함수 로직**: 단순 곱셈 연산 (x * x)
+**함수 로직**: 단순 곱셈 연산 (`x * x`)
 
 **사용 예시**:
 ```c
@@ -1710,7 +2074,7 @@ printf("분산: %.2f\n", variance);
 
 </details>
 
-#### 5.7.2 Sys2Str() - 시스템 인덱스를 문자로 변환
+#### 5.8.2 Sys2Str() - 시스템 인덱스를 문자로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1720,7 +2084,7 @@ printf("분산: %.2f\n", variance);
 - `int sys`: 시스템 인덱스 (1~NSYS)
 
 **출력**:
-- `char`: 시스템 문자 ('G', 'R', 'E', 'C', 'J', 'I', 'S'), 오류 시 '\0'
+- `char`: 시스템 문자 ('G', 'R', 'E', 'C', 'J', 'I', 'S'), 오류 시 `\0`
 
 **함수 로직**:
 1. 활성화된 시스템별로 순차 확인
@@ -1755,7 +2119,7 @@ if (result == '\0') {
 
 </details>
 
-#### 5.7.3 Str2Sys() - 문자를 시스템 인덱스로 변환
+#### 5.8.3 Str2Sys() - 문자를 시스템 인덱스로 변환
 <details>
 <summary>상세 설명</summary>
 
@@ -1830,8 +2194,8 @@ printf("위성 문자열: %s\n", str.str);
 ### 6.2 시간 변환
 ```c
 // 현재 시간 조회
-double current_time = TimeGet();
-printf("현재 UNIX Time: %.3f\n", current_time);
+double current_gpst = TimeGet();
+printf("현재 GPST (UNIX Time): %.3f\n", current_gpst);
 
 // 달력 시간 변환
 cal_t cal = {2024, 12, 25, 15, 30, 45.123};
@@ -1845,7 +2209,7 @@ double gps_time = Gpst2Time(gps_week, tow);
 int week_back;
 double tow_back = Time2Gpst(gps_time, &week_back);
 
-printf("GPS 주차 %d, 주내초 %.1f → UNIX Time: %.3f\n",
+printf("GPS Week %d, tow %.1f → UNIX Time: %.3f\n",
        gps_week, tow, gps_time);
 ```
 
@@ -2004,6 +2368,52 @@ if (dops) {
 }
 
 FreeMat(azels); FreeMat(dops);
+```
+
+### 6.11 GNSS 보정 모델 통합 사용
+```c
+// 통합 GNSS 보정 계산 예시
+nav_t nav;
+InitNav(&nav);
+
+// 위치 및 위성 정보
+mat_t *llh = Mat(1, 3, DOUBLE);
+MatSetD(llh, 0, 0, 37.5665 * D2R);  // 서울 위도
+MatSetD(llh, 0, 1, 126.9780 * D2R); // 서울 경도
+MatSetD(llh, 0, 2, 100.0);          // 높이 100m
+
+int sat = Prn2Sat(1, 5);             // GPS PRN 5
+mat_t *azel = SatAzEl(sat_pos, rcv_pos);  // 방위각/고도각 계산
+
+double time = TimeGet();
+double humidity = 0.7;               // 상대습도 70%
+
+// 1. 안테나 보정
+mat_t *dant = RcvAntModel(sat, azel, 2, &nav.pcvs.pcv[0]);
+
+// 2. 대류권 지연 보정
+mat_t *tropo = TropoModel(time, llh, azel, humidity);
+
+// 3. 전리층 지연 보정
+mat_t *iono = IonoModel(time, llh, azel, NULL);  // 기본 매개변수 사용
+
+// 4. 관측값 오차 분산
+mat_t *var = MeasVar(sat, MatGetD(azel, 0, 1), 2, nav.opt);
+
+// 보정값 적용
+if (dant && tropo && iono && var) {
+    printf("=== GNSS 보정값 요약 ===\n");
+    printf("안테나 L1 보정: %6.3f mm\n", MatGetD(dant, 0, 0) * 1000);
+    printf("대류권 지연:    %6.3f m\n", MatGetD(tropo, 0, 0));
+    printf("전리층 지연:    %6.3f m\n", MatGetD(iono, 0, 0));
+    printf("L1 코드 정확도: %6.3f m\n", sqrt(MatGetD(var, 0, 0)));
+    printf("L1 위상 정확도: %6.3f mm\n", sqrt(MatGetD(var, 1, 0)) * 1000);
+}
+
+// 메모리 해제
+FreeMat(llh); FreeMat(azel); FreeMat(dant);
+FreeMat(tropo); FreeMat(iono); FreeMat(var);
+FreeNav(&nav);
 ```
 
 ---

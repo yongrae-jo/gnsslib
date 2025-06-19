@@ -1,0 +1,31 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build test_rinex",
+            "type": "shell",
+            "command": "gcc",
+            "args": [
+                "-g",
+                "-o", "test_rinex",
+                "test_rinex.c",
+
+                "src/common.c",
+                "src/ephemeris.c",
+                "src/files.c",
+                "src/matrix.c",
+                "src/obs.c",
+                "src/option.c",
+                "src/rinex.c",
+                "src/solution.c",
+
+                "-Iinclude"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}

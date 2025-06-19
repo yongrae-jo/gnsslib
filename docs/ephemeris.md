@@ -42,7 +42,7 @@ GNSS 위성의 방송궤도력을 이용한 위성 위치 및 시계 계산을 �
 $$\boldsymbol{r}^s(t) = f(\text{eph}, t - t_{\text{oe}})$$
 
 여기서:
-- $\boldsymbol{r}^s(t)$: 시각 $t$에서의 위성 위치 벡터
+- $\boldsymbol{r}^s(t)$: 시각 $~t~$에서의 위성 위치 벡터
 - $\text{eph}$: 방송궤도력 파라미터 집합
 - $t_{\text{oe}}$: 궤도력 기준 시각 (Time of Ephemeris)
 
@@ -159,7 +159,7 @@ static const double URA_ERR[] = {
 
 **목적**: 시스템별 방송궤도력 타입 구분
 
-**정의**: `int` 타입 (0~2, 시스템별 가변 범위)
+**정의**: `int` 타입 (시스템별 0 또는 1)
 
 **값**:
 
@@ -199,7 +199,7 @@ static const double URA_ERR[] = {
 |------|------|------|
 | **0** | RINEX | RINEX SBAS Ephemeris (기본) |
 
-**사용**: 모든 시스템의 기본 타입은 0으로 통일
+**사용**: Galileo를 제외한 모든 시스템은 타입 0만 사용하며, Galileo는 I/NAV(0)와 F/NAV(1)를 선택적으로 사용합니다.
 
 </details>
 
@@ -246,7 +246,7 @@ static int EPHTYPE[NSYS] = {0}; // 모든 시스템 기본값 0
 **값**:
 - **크기**: NSYS (활성화된 시스템 개수)
 - **인덱스**: 시스템 ID - 1 (0-based)
-- **값**: 궤도력 타입 (0~2)
+- **값**: 궤도력 타입 (0 또는 1)
 
 **사용**:
 - 읽기: `GetEphType(sys)` 함수 사용
@@ -259,20 +259,20 @@ static int EPHTYPE[NSYS] = {0}; // 모든 시스템 기본값 0
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 시스템별 유효한 궤도력 타입 범위 정의
+**목적**: 시스템별 유효한 궤도력 타입 범위 정의 및 검증
 
-**정의**: 시스템별 하드코딩된 범위 검증 로직
+**정의**: `SetEphType()` 함수 내에 하드코딩된 로직
 
-**값**:
-- **일반 시스템**: 0~1 (GPS, GLONASS, BeiDou, QZSS, IRNSS, SBAS)
-- **확장 시스템**: 0~2 (Galileo)
+**규칙**:
+- **Galileo**: 타입 0 (I/NAV) 및 1 (F/NAV) 허용
+- **기타 모든 시스템**: 타입 0만 허용
 
 **사용**:
 ```c
-if (sys == 3) {  // Galileo
-    valid_range = (type >= 0 && type <= 2);
-} else {         // 기타 시스템
-    valid_range = (type >= 0 && type <= 1);
+if (sys == SYS_GAL) { // Galileo
+    valid = (type >= 0 && type <= 1);
+} else {            // 기타 모든 시스템
+    valid = (type == 0);
 }
 ```
 
@@ -556,8 +556,8 @@ ephs->eph = newEph;     // 성공 시에만 포인터 업데이트
 **목적**: 모든 GNSS 시스템의 방송궤도력을 이용한 위성 위치, 속도, 시계 바이어스/드리프트 계산
 
 **입력**:
-- `double ephtime`: 궤도력 시각 [s]
-- `double time`: 신호 송신 시각 [s]
+- `double ephtime`: 궤도력 시각 (GPST) [s]
+- `double time`: 신호 송신 시각 (GPST) [s]
 - `int sat`: 위성 인덱스
 - `const nav_t *nav`: 항법 데이터
 - `int iode`: IODE 값 (-1: 무시)
@@ -578,7 +578,7 @@ if (dts) {if (dts->rows != 1 || dts->cols != 2) return 0;} // 시계 바이어�
 if (rs)  {for (int i = 0; i < 6; i++) MatSetD(rs, 0, i, 0.0);}
 if (dts) {for (int i = 0; i < 2; i++) MatSetD(dts, 0, i, 0.0);}
 if (var) {*var = 0.0;}
-if (eph) {*eph = (eph_t){0, 0, 0, 0, 0, 0, -1};}  // svh = -1
+if (eph) {*eph = (eph_t){.svh = -1};}
 
 // 2. 입력 검증
 if (!nav || sat <= 0 || ephtime < 0.0 || time < 0.0) return 0;
@@ -589,7 +589,7 @@ if (sys <= 0 || sys > NSYS) return 0;
 eph_t *ephSelected = SelectEph(ephtime, sat, nav, iode);
 if (!ephSelected) return 0;
 
-// 4. 수치 미분을 위한 3점 계산 (tt = 1ms)
+// 4. 수치 미분을 위한 3점 계산 (tt = 1 ms)
 double pos0[3], posf[3], posb[3], clk0, clkf, clkb, var0, tt = 1E-3;
 
 switch (Sys2Str(sys)) {
@@ -673,7 +673,7 @@ $$\Omega_k = \Omega_0 + (\dot{\Omega} - \omega_e) t_k - \omega_e t_{oe}$$
 $$\begin{bmatrix} x \\ y \\ z \end{bmatrix} = \begin{bmatrix} x_k' \cos\Omega_k - y_k' \cos i_k \sin\Omega_k \\ x_k' \sin\Omega_k + y_k' \cos i_k \cos\Omega_k \\ y_k' \sin i_k \end{bmatrix}$$
 
 BeiDou GEO 위성 (5° 회전 보정):
-$$\begin{bmatrix} x \\ y \\ z \end{bmatrix} = \mathbf{R}_z(\omega_e t_k) \mathbf{R}_x(-5°) \begin{bmatrix} x_{gk} \\ y_{gk} \\ z_{gk} \end{bmatrix}$$
+$$\begin{bmatrix} x \\ y \\ z \end{bmatrix} = \mathbf{R}_z(-\omega_e t_k) \mathbf{R}_x(-5°) \begin{bmatrix} x_{gk} \\ y_{gk} \\ z_{gk} \end{bmatrix}$$
 
 **7단계: 위성 시계 보정**
 $$\Delta t^s = a_{f0} + a_{f1} \cdot t_k + a_{f2} \cdot t_k^2 - \frac{2\sqrt{\mu a} e \sin E_k}{c^2}$$
@@ -697,28 +697,21 @@ GLONASS는 케플러 요소 대신 위치/속도/가속도가 직접 방송궤�
 **1단계: 초기 상태벡터 설정**
 $$\boldsymbol{x}_0 = \begin{bmatrix} \boldsymbol{r}_0 \\ \boldsymbol{v}_0 \end{bmatrix} = \begin{bmatrix} \begin{bmatrix} x_0 & y_0 & z_0 \end{bmatrix}^T \\ \begin{bmatrix} \dot{x}_0 & \dot{y}_0 & \dot{z}_0 \end{bmatrix}^T \end{bmatrix}$$
 
-**2단계: GLONASS 미분방정식**
-$$\frac{d\boldsymbol{r}}{dt} = \boldsymbol{v}$$
+**2단계: GLONASS 미분방정식 (회전좌표계)**
+ECEF(Earth-Centered Earth-Fixed) 회전좌표계에서 위성의 운동방정식은 다음과 같이 표현됩니다. 이 방정식은 관성계에서의 실제 힘(중력, J2 섭동 등)과 회전 효과(원심력, 코리올리 힘)를 모두 포함합니다.
 
-$$\frac{d\boldsymbol{v}}{dt} = \boldsymbol{a}_{central} + \boldsymbol{a}_{J2} + \boldsymbol{a}_{rotation} + \boldsymbol{a}_{eph}$$
+$$ \ddot{\boldsymbol{r}} = \left( -\frac{\mu}{r^3}\boldsymbol{r} + \boldsymbol{a}_{J2} + \boldsymbol{a}_{\text{eph}} \right) - 2(\boldsymbol{\Omega}_e \times \boldsymbol{v}) - \boldsymbol{\Omega}_e \times (\boldsymbol{\Omega}_e \times \boldsymbol{r}) $$
 
-여기서:
+`GloDeq` 함수는 이 운동방정식의 각 성분을 다음과 같이 계산합니다:
+- **x축 가속도**: $ \ddot{x} = \left( -\frac{\mu}{r^3} - \frac{3J_2\mu R_e^2}{2r^5}(1 - \frac{5z^2}{r^2}) \right)x + \omega_e^2 x + 2\omega_e \dot{y} + a_x $
+- **y축 가속도**: $ \ddot{y} = \left( -\frac{\mu}{r^3} - \frac{3J_2\mu R_e^2}{2r^5}(1 - \frac{5z^2}{r^2}) \right)y + \omega_e^2 y - 2\omega_e \dot{x} + a_y $
+- **z축 가속도**: $ \ddot{z} = \left( -\frac{\mu}{r^3} - \frac{3J_2\mu R_e^2}{2r^5}(3 - \frac{5z^2}{r^2}) \right)z + a_z $
 
-**중심력항**:
-$$\boldsymbol{a}_{central} = -\frac{\mu}{r^3}\boldsymbol{r}$$
-
-**J2 섭동항**:
-$$\boldsymbol{a}_{J2} = \frac{3}{2} J_2 \frac{\mu R_e^2}{r^5} \begin{bmatrix} x(1-5z^2/r^2) \\ y(1-5z^2/r^2) \\ z(3-5z^2/r^2) \end{bmatrix}$$
-
-**지구 자전 효과**:
-$$\boldsymbol{a}_{rotation} = \boldsymbol{\Omega}_e \times (\boldsymbol{\Omega}_e \times \boldsymbol{r}) + 2\boldsymbol{\Omega}_e \times \boldsymbol{v}$$
-
-여기서 $\boldsymbol{\Omega}_e = [0, 0, \omega_e]^T$
-
-**방송궤도력 가속도**:
-$$\boldsymbol{a}_{eph} = [a_x, a_y, a_z]^T$$
-
-방송궤도력에 포함된 달-태양 섭동 가속도를 외부에서 전달받아 사용
+여기서 각 변수는 다음과 같습니다:
+- $ \boldsymbol{r} = [x,y,z]^T $: 위성 위치 벡터
+- $ \boldsymbol{v} = [\dot{x},\dot{y},\dot{z}]^T $: 위성 속도 벡터
+- $ \mu, J_2, R_e, \omega_e $: 각각 중력 상수, J2 계수, 지구 반경, 지구 자전 각속도
+- $ \boldsymbol{a}_{\text{eph}} = [a_x, a_y, a_z]^T $: 달-태양 인력에 의한 섭동 가속도 (방송궤도력에 포함)
 
 **3단계: Runge-Kutta 4차 적분**
 $$\boldsymbol{k}_1 = f(\boldsymbol{x}_n, t_n)$$
@@ -730,7 +723,7 @@ $$\boldsymbol{x}_{n+1} = \boldsymbol{x}_n + \frac{\Delta t}{6}(\boldsymbol{k}_1 
 **4단계: GLONASS 시계 모델**
 $$\Delta t^s = -\tau_n + \gamma_n \cdot (t - t_{oc})$$
 
-여기서 $\tau_n$은 시계 바이어스, $\gamma_n$은 상대 주파수 오프셋
+여기서 $\tau_n$은 시계 바이어스, $\gamma_n$은 상대 주파수 오프셋입니다.
 
 </details>
 
@@ -748,9 +741,9 @@ $$\Delta t^s = -\tau_n + \gamma_n \cdot (t - t_{oc})$$
 $$\boldsymbol{r}(t) = \boldsymbol{r}_0 + \boldsymbol{v}_0 \cdot t_k + \frac{1}{2}\boldsymbol{a}_0 \cdot t_k^2$$
 
 여기서:
-- $\boldsymbol{r}_0$: 기준시각 $t_0$에서의 위성 위치 벡터
-- $\boldsymbol{v}_0$: 기준시각 $t_0$에서의 위성 속도 벡터
-- $\boldsymbol{a}_0$: 기준시각 $t_0$에서의 위성 가속도 벡터
+- $\boldsymbol{r}_0$: 기준시각 $~t_0~$에서의 위성 위치 벡터
+- $\boldsymbol{v}_0$: 기준시각 $~t_0~$에서의 위성 속도 벡터
+- $\boldsymbol{a}_0$: 기준시각 $~t_0~$에서의 위성 가속도 벡터
 - $t_k = t - t_0$: 기준시각으로부터의 경과시간
 
 **성분별 계산**:
@@ -778,7 +771,7 @@ $$\Delta t^s = a_{f0} + a_{f1} \cdot t_k$$
 **목적**: 주어진 조건에 맞는 최적의 방송궤도력 데이터 선택
 
 **입력**:
-- `double ephtime`: 궤도력 시각 [s]
+- `double ephtime`: 궤도력 시각 (GPST) [s]
 - `int sat`: 위성 인덱스
 - `const nav_t *nav`: 항법 데이터
 - `int iode`: IODE 값 (-1: 무시)
@@ -819,10 +812,10 @@ for (int i = 0; i < nav->ephs[sat-1].n; i++) {
 
     // Galileo 타입 특별 처리 (I/NAV vs F/NAV)
     if (Sys2Str(sys) == STR_GAL) {
-        if (GetEphType(sys) == 1) {
-            if (!(eph->data & (1<<8))) continue;  // F/NAV 확인
-        } else {
-            if (!(eph->data & (1<<9))) continue;  // I/NAV 확인
+        if (GetEphType(sys) == 1) { // F/NAV
+            if (!(eph->data & (1<<8))) continue;
+        } else { // I/NAV
+            if (!(eph->data & (1<<9))) continue;
         }
     }
 
@@ -903,7 +896,7 @@ return 1;                                       // 유효한 궤도력
 **목적**: GPS/QZS 시스템의 URA(User Range Accuracy) 오차값↔인덱스 변환
 
 **URA 변환 공식**: GPS ICD Table 20-I 표준
-- **값→인덱스**: $\text{idx} = \min\{i : \text{err} \leq \text{URA\_ERR}[i]\}$
+- **값→인덱스**: $\text{err} \leq \text{URA\_ERR}[i]$를 만족하는 최소 인덱스 $i$를 반환하며, 범위를 벗어나면 -1을 반환합니다.
 - **인덱스→값**: $\text{err} = \text{URA\_ERR}[\text{idx}]$
 
 **함수 로직**:
@@ -911,15 +904,15 @@ return 1;                                       // 유효한 궤도력
 // Ura2Idx() - URA 값을 인덱스로 변환
 int Ura2Idx(double ura) {
     for (int i = 0; i < NURA; i++) {
-        if (ura <= URA_ERR[i]) return i;        // 최소 상한 인덱스 반환
+        if (ura <= URA_ERR[i]) return i; // 최소 상한 인덱스 반환
     }
-    return NURA - 1;                            // 최대값 초과 시 최대 인덱스
+    return -1; // 최대값 초과 시 오류
 }
 
 // Idx2Ura() - 인덱스를 URA 값으로 변환
 double Idx2Ura(int idx) {
-    if (idx < 0 || idx >= NURA) return 0.0;    // 범위 검증
-    return URA_ERR[idx];                        // 직접 테이블 인덱싱
+    if (idx < 0 || idx >= NURA) return -1.0; // 범위 검증 (오류 시 -1.0)
+    return URA_ERR[idx];                     // 직접 테이블 인덱싱
 }
 ```
 
@@ -931,11 +924,18 @@ double Idx2Ura(int idx) {
 
 **목적**: Galileo 시스템의 SISA(Signal-In-Space Accuracy) 오차값↔인덱스 변환
 
-**SISA 변환 공식**: Galileo ICD 4구간 모델
-- **0~49**: $\text{err} = \text{idx} \times 0.01$ (0.00~0.49 m)
-- **50~74**: $\text{err} = 0.5 + (\text{idx}-50) \times 0.02$ (0.50~0.98 m)
-- **75~99**: $\text{err} = 1.0 + (\text{idx}-75) \times 0.04$ (1.00~1.96 m)
-- **100~125**: $\text{err} = 2.0 + (\text{idx}-100) \times 0.16$ (2.00~6.00 m)
+**인덱스 → 값 변환 (Idx2Sisa)**: Galileo ICD 4구간 모델
+- **0~49**: $sisa \times 0.01$ (0.00~0.49 m)
+- **50~74**: $0.5 + (sisa-50) \times 0.02$ (0.50~0.98 m)
+- **75~99**: $1.0 + (sisa-75) \times 0.04$ (1.00~1.96 m)
+- **100~125**: $2.0 + (sisa-100) \times 0.16$ (2.00~6.00 m)
+
+**값 → 인덱스 변환 (Sisa2Idx)**: 상기 공식의 역변환
+- **0.0~0.5 m**: $(err / 0.01)$
+- **0.5~1.0 m**: $50 + (err - 0.5) / 0.02$
+- **1.0~2.0 m**: $75 + (err - 1.0) / 0.04$
+- **2.0~6.0 m**: $100 + (err - 2.0) / 0.16$
+
 
 **함수 로직**:
 ```c
@@ -980,7 +980,7 @@ double Idx2Sisa(int sisa) {
 - `int sys`: GNSS 시스템 ID (1~7)
 
 **출력**:
-- `int`: 방송궤도력 타입 (시스템별 0~2), 오류 시 -1
+- `int`: 방송궤도력 타입 (Galileo: 0~1, 기타: 0), 오류 시 -1
 
 **함수 로직**:
 ```c
@@ -1009,10 +1009,12 @@ return EPHTYPE[sys - 1];                       // EPHTYPE 배열에서 타입 �
 if (sys < 1 || sys > NSYS) return;             // 시스템 ID 유효성 검사
 
 // 시스템별 타입 범위 검증
-int max_type = 1;                               // 기본 최대 타입
-if (sys == SYS_GAL) max_type = 2;               // Galileo는 타입 0~2
-
-if (type < 0 || type > max_type) return;       // 타입 범위 검증
+if (Sys2Str(sys) == STR_GAL) {
+    if (type < 0 || type > 1) return;          // Galileo: 0(I/NAV), 1(F/NAV)
+}
+else {
+    if (type != 0) return;                     // Other systems: 0 only
+}
 
 EPHTYPE[sys - 1] = type;                       // 유효한 타입만 저장 (0-based)
 ```
@@ -1165,8 +1167,8 @@ SetEphType(3, 1);
 printf("Galileo F/NAV 설정 후: %d\n", GetEphType(3));
 
 // 잘못된 타입 설정 시도 (무시됨)
-SetEphType(3, 5);  // 유효 범위 벗어남
-printf("잘못된 타입 설정 후: %d\n", GetEphType(3)); // 여전히 1
+SetEphType(1, 1);  // GPS에 유효하지 않은 타입 1
+printf("잘못된 타입 설정 후 GPS: %d\n", GetEphType(1)); // 여전히 0
 ```
 
 ### 6.4 궤도력 유효성 검사 및 선택
@@ -1363,7 +1365,7 @@ printf("궤도력 타입 설정이 복원되었습니다.\n");
 
 ### 7.4 수치적 안정성
 - **케플러 방정식**: Newton-Raphson 수렴성 보장 (허용오차 1E-13)
-- **GLONASS 적분**: 적응적 스텝으로 안정성 확보
+- **GLONASS 적분**: 고정 스텝 RK4 사용 (안정성 확보)
 - **특이점 처리**: 영벡터, 무한대 등 예외 상황 대응
 - **정밀도 유지**: double 정밀도로 나노초 수준 시계 계산
 

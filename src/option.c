@@ -5,8 +5,9 @@
 // Yongrae Jo, 0727ggame@sju.ac.kr
 // =============================================================================
 
+// GNSS library
 #include "option.h"
-#include "common.h"
+#include "common.h"                     // for Str2Sys, Str2Sat
 
 // =============================================================================
 // Option functions

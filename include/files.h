@@ -12,32 +12,38 @@
 extern "C" {
 #endif
 
-#include "common.h"
+// GNSS library
+#include "types.h"          // for types
 
 // =============================================================================
-// Macros
+// Inline functions
 // =============================================================================
 
-#define MAX_FILE_NAME_LEN 1024          // Maximum number of characters in file name
+// -----------------------------------------------------------------------------
+// Get line from buffer
+//
+// args:
+//  const buffer_t *buffer   (I) : buffer structure
+//        size_t   l         (I) : line index
+//        int      len       (O) : (optional) length of the line
+//
+// return:
+//        char     *line     (O) : line string (NULL if error)
+// -----------------------------------------------------------------------------
+static inline char *GetLine(const buffer_t *buffer, size_t l, int *len)
+{
+    // Check if the buffer is valid
+    if (!buffer || l >= buffer->nline) return NULL;
 
-// =============================================================================
-// Type definition
-// =============================================================================
+    // Get line from buffer
+    char *line = buffer->buff + buffer->lineinfo[l].start;
 
-typedef struct files {                  // Struct of file name string array
-    char **names;                       // Dynamic array of file names
-    int  n;                             // Current number of files
-    int  nmax;                          // Maximum number of files (allocated)
-} files_t;
+    // Get length of the line
+    if (len) *len = (int)buffer->lineinfo[l].len;
 
-typedef struct file {                   // Struct of files
-    files_t obsfiles;                   // Observation files
-    files_t navfiles;                   // Navigation files
-    files_t sp3files;                   // SP3 files
-    files_t clkfiles;                   // Clock files
-    files_t dcbfiles;                   // DCB files
-    files_t atxfiles;                   // Antenna exchange files
-} file_t;
+    // Return line
+    return line;
+}
 
 // =============================================================================
 // File functions
@@ -90,11 +96,49 @@ void InitFile(file_t *file);
 void FreeFile(file_t *file);
 
 // =============================================================================
+// Buffer functions
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Initialize file buffer structure
+//
+// args:
+//        buffer_t *buffer (I,O) : buffer structure
+//
+// return:
+//        int      info    (O)   : 1 if successful, 0 if failed
+// -----------------------------------------------------------------------------
+int InitBuff(buffer_t *buffer);
+
+// -----------------------------------------------------------------------------
+// Get file buffer from file
+//
+// args:
+//  const char      *filename (I)   : file name
+//        buffer_t  *buffer   (O)   : buffer structure
+//
+// return:
+//        int       info      (O)   : 1 if successful, 0 if failed
+// -----------------------------------------------------------------------------
+int GetBuff(const char *filename, buffer_t *buffer);
+
+// -----------------------------------------------------------------------------
+// Free file buffer structure
+//
+// args:
+//        buffer_t  *buffer (I) : buffer structure
+//
+// return:
+//        void              (-) : no return value
+// -----------------------------------------------------------------------------
+void FreeBuff(buffer_t *buffer);
+
+// =============================================================================
 // File read functions
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// Read observation data files
+// Read observation data files (RINEX OBS, RTCM (TBD), UBX (TBD))
 //
 // args:
 //       files_t *files (I)   : file string data structure

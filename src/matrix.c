@@ -7,11 +7,16 @@
 
 #include "matrix.h"
 #include <stdlib.h>     // for posix_memalign, malloc, free
-#include <stddef.h>     // for size_t
 #include <assert.h>     // for assert
 #include <math.h>       // for fabs, sqrt, floor
 #include <stdio.h>      // for printf, snprintf
 #include <string.h>     // for strlen, memset, memcpy
+
+// =============================================================================
+// Macros
+// =============================================================================
+
+#define MAT_ALIGNMENT 32    // Memory alignment for SIMD optimization
 
 // =============================================================================
 // Static functions (internal use only)

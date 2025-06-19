@@ -8,48 +8,12 @@
 #ifndef OBS_H
 #define OBS_H
 
+// GNSS library
+#include "types.h"          // for types
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "const.h"                      // for NFREQ
-
-// =============================================================================
-// Macros
-// =============================================================================
-
-#define CODE_STR_SIZE 4  // Number of characters in observation code string (LXX)
-
-// =============================================================================
-// Global variables
-// =============================================================================
-
-extern const int NCODE;    // The number of obs codes
-
-// =============================================================================
-// Type definition
-// =============================================================================
-
-typedef struct obs {                    // Struct of observation data
-    double time;                        // Standard time (GPST)
-    int    rcv;                         // Receiver index
-    int    sat;                         // Satellite index
-    int    code[NFREQ];                 // Observation code index
-    double P   [NFREQ];                 // Pseudorange [m]
-    double L   [NFREQ];                 // Carrier phase [m]
-    double D   [NFREQ];                 // Doppler frequency [Hz]
-    double SNR [NFREQ];                 // Signal-to-noise ratio [dB]
-    int    LLI [NFREQ];                 // Loss of lock indicator
-} obs_t;
-
-typedef struct obss {                  // Struct of observation data set
-    int    n, nmax;                    // Number of observations/allocated memory
-    obs_t  *obs;                       // Observation data
-} obss_t;
-
-typedef struct {
-    char str[CODE_STR_SIZE];
-} codeStr_t;
 
 // =============================================================================
 // Observation data structure functions

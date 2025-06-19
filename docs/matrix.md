@@ -186,22 +186,22 @@ matrix 모듈 함수 계층
 │   ├── MatLogIdx() ───────── 논리 인덱싱
 │   └── MatLogIdxIn() ─────── 제자리 논리 인덱싱
 ├── 행렬 연산
-│   ├── MatAdd() ──────────── 일반화 행렬 덧셈 $[C = a \cdot A^{T_A} + b \cdot B^{T_B}]$
+│   ├── MatAdd() ──────────── 일반화 행렬 덧셈 `C = a*A^T + b*B^T`
 │   ├── MatAddIn() ────────── 제자리 덧셈
-│   ├── MatMul() ──────────── 일반화 행렬 곱셈 $[C = a \cdot A^{T_A} \times b \cdot B^{T_B}]$
+│   ├── MatMul() ──────────── 일반화 행렬 곱셈 `C = (a*A^T) * (b*B^T)`
 │   ├── MatMulIn() ────────── 제자리 곱셈
-│   ├── MatInv() ──────────── 행렬 역행렬 $[A_i = \text{inv}(a \cdot A^{T_A})]$
+│   ├── MatInv() ──────────── 일반화 행렬 역행렬 `Ai = inv(a*A^T)`
 │   └── MatInvIn() ────────── 제자리 역행렬
 ├── 벡터 연산 (mat_t, N×1 또는 1×N)
-│   ├── Dot() ──────────────── 벡터 내적 (출력 매개변수)
-│   ├── Cross3() ──────────── 3차원 외적 (출력 매개변수)
-│   └── Norm() ────────────── 유클리드 노름 (DOUBLE 전용)
+│   ├── Dot() ──────────────── 벡터 내적 `c = a^T * b`
+│   ├── Cross3() ──────────── 3차원 외적 `c = a x b`
+│   └── Norm() ────────────── 유클리드 노름 `norm = ||a||`
 ├── 분석 함수
 │   └── MatDet() ──────────── 행렬식 계산 (LU 분해)
 └── 고급 알고리즘
-    ├── Interp() ──────────── 선형 보간 (1차원)
-    ├── Lsq() ─────────────── 최소제곱법 (optional 매개변수 지원)
-    └── Ekf() ─────────────── 확장칼만필터 (Joseph 형태)
+    ├── Interp() ──────────── 선형 보간 `y = interp(x0, y0, x)`
+    ├── Lsq() ─────────────── 최소제곱법 `x_hat = (H^T R^-1 H)^-1 H^T R^-1 y`
+    └── Ekf() ─────────────── 확장칼만필터 `P_new = (I-KH)P(I-KH)^T + KRK^T`
 ```
 
 ---
@@ -1137,64 +1137,44 @@ FreeIdx(row_mask); FreeIdx(col_mask); FreeIdx(value_row_mask); FreeIdx(value_col
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 일반화 행렬 덧셈 $C = a \cdot A^{T_A} + b \cdot B^{T_B}$
+**목적**: 두 행렬의 스케일링된 덧셈/뺄셈 수행
 
 **입력**:
-- `double a`: 행렬 A의 스칼라 계수
+- `double a`: 행렬 A의 스케일링 계수
 - `const mat_t *A`: 첫 번째 행렬
-- `bool trA`: A의 전치 플래그 (true면 $A^T$ 사용)
-- `double b`: 행렬 B의 스칼라 계수
+- `bool trA`: A의 전치 여부 (true: 전치, false: 비전치)
+- `double b`: 행렬 B의 스케일링 계수
 - `const mat_t *B`: 두 번째 행렬
-- `bool trB`: B의 전치 플래그 (true면 $B^T$ 사용)
+- `bool trB`: B의 전치 여부 (true: 전치, false: 비전치)
 
 **출력**:
-- `mat_t *`: 덧셈 결과 행렬 (오류 시 NULL)
+- `mat_t *`: 결과 행렬 (오류 시 NULL)
+
+**GNSS 수식**:
+$$ \mathbf{C} = a \cdot \mathbf{A}^{(\text{T})} + b \cdot \mathbf{B}^{(\text{T})} $$
+- $a, b$: 스칼라 계수
+- $\mathbf{A}^{(\text{T})}$: `trA` 값에 따라 $\mathbf{A}$ 또는 $\mathbf{A}^T$
+- $\mathbf{B}^{(\text{T})}$: `trB` 값에 따라 $\mathbf{B}$ 또는 $\mathbf{B}^T$
 
 **함수 로직**:
-- 스칼라 곱셈과 전치 연산 적용
-- 결과 행렬의 차원 호환성 검증
-- DOUBLE 타입만 지원
+- 입력 행렬들의 차원 및 타입 검증
+- 전치 여부에 따라 연산 수행
+- 결과 행렬을 새로 할당하여 반환
 
 **사용 예시**:
 ```c
-// 2×3 행렬 A와 3×2 행렬 B 생성
+// C = 2.0 * A + 1.0 * B^T
 mat_t *A = Mat(2, 3, DOUBLE);
 mat_t *B = Mat(3, 2, DOUBLE);
+// ... A, B 행렬 초기화 ...
 
-// 행렬 A 설정: [[1, 2, 3], [4, 5, 6]]
-MatSetD(A, 0, 0, 1.0); MatSetD(A, 0, 1, 2.0); MatSetD(A, 0, 2, 3.0);
-MatSetD(A, 1, 0, 4.0); MatSetD(A, 1, 1, 5.0); MatSetD(A, 1, 2, 6.0);
-
-// 행렬 B 설정: [[1, 2], [3, 4], [5, 6]]
-MatSetD(B, 0, 0, 1.0); MatSetD(B, 0, 1, 2.0);
-MatSetD(B, 1, 0, 3.0); MatSetD(B, 1, 1, 4.0);
-MatSetD(B, 2, 0, 5.0); MatSetD(B, 2, 1, 6.0);
-
-// C = 2*A + 3*B^T (A: 2×3, B^T: 2×3)
-mat_t *C = MatAdd(2.0, A, false, 3.0, B, true);
+mat_t *C = MatAdd(2.0, A, false, 1.0, B, true);
 if (C) {
-    printf("C = 2*A + 3*B^T (2×3):\n");
-    for (int i = 0; i < C->rows; i++) {
-        for (int j = 0; j < C->cols; j++) {
-            printf("%6.0f", MatGetD(C, i, j));
-        }
-        printf("\n");
-    }
+    // 결과 행렬 C 사용
+    FreeMat(C);
 }
 
-// D = A^T - 0.5*B (A^T: 3×2, B: 3×2)
-mat_t *D = MatAdd(1.0, A, true, -0.5, B, false);
-if (D) {
-    printf("\nD = A^T - 0.5*B (3×2):\n");
-    for (int i = 0; i < D->rows; i++) {
-        for (int j = 0; j < D->cols; j++) {
-            printf("%6.1f", MatGetD(D, i, j));
-        }
-        printf("\n");
-    }
-}
-
-FreeMat(A); FreeMat(B); FreeMat(C); FreeMat(D);
+FreeMat(A); FreeMat(B);
 ```
 
 </details>
@@ -1203,7 +1183,7 @@ FreeMat(A); FreeMat(B); FreeMat(C); FreeMat(D);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 제자리 일반화 행렬 덧셈 $A = a \cdot A^{T_A} + b \cdot B^{T_B}$
+**목적**: 제자리 일반화 행렬 덧셈
 
 **입력**:
 - `mat_t *A`: 입력/출력 행렬
@@ -1215,6 +1195,12 @@ FreeMat(A); FreeMat(B); FreeMat(C); FreeMat(D);
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
+
+**GNSS 수식**:
+$$ \mathbf{A} = a \cdot \mathbf{A}^{(\text{T})} + b \cdot \mathbf{B}^{(\text{T})} $$
+- $a, b$: 스칼라 계수
+- $\mathbf{A}^{(\text{T})}$: `trA` 값에 따라 $\mathbf{A}$ 또는 $\mathbf{A}^T$
+- $\mathbf{B}^{(\text{T})}$: `trB` 값에 따라 $\mathbf{B}$ 또는 $\mathbf{B}^T$
 
 **함수 로직**:
 - 일반화 덧셈 계산 후 결과를 A에 복사
@@ -1271,82 +1257,53 @@ FreeMat(A); FreeMat(B); FreeMat(C);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 일반화 행렬 곱셈 $C = a \cdot A^{T_A} \times b \cdot B^{T_B}$
+**목적**: 두 행렬의 스케일링된 행렬 곱셈 수행
 
 **입력**:
-- `double a`: 행렬 A의 스칼라 계수
+- `double a`: 행렬 A의 스케일링 계수
 - `const mat_t *A`: 첫 번째 행렬
-- `bool trA`: A의 전치 플래그 (true면 $A^T$ 사용)
-- `double b`: 행렬 B의 스칼라 계수
+- `bool trA`: A의 전치 여부 (true: 전치, false: 비전치)
+- `double b`: 행렬 B의 스케일링 계수
 - `const mat_t *B`: 두 번째 행렬
-- `bool trB`: B의 전치 플래그 (true면 $B^T$ 사용)
+- `bool trB`: B의 전치 여부 (true: 전치, false: 비전치)
 
 **출력**:
-- `mat_t *`: 곱셈 결과 행렬 (오류 시 NULL)
+- `mat_t *`: 결과 행렬 (오류 시 NULL)
+
+**GNSS 수식**:
+$$ \mathbf{C} = (a \cdot \mathbf{A}^{(\text{T})}) \cdot (b \cdot \mathbf{B}^{(\text{T})}) $$
+- $a, b$: 스칼라 계수
+- $\mathbf{A}^{(\text{T})}$: `trA` 값에 따라 $\mathbf{A}$ 또는 $\mathbf{A}^T$
+- $\mathbf{B}^{(\text{T})}$: `trB` 값에 따라 $\mathbf{B}$ 또는 $\mathbf{B}^T$
 
 **함수 로직**:
-- 스칼라 곱셈과 전치 연산 적용
-- 행렬 곱셈 차원 호환성 검증 (A의 열 = B의 행)
-- DOUBLE 타입만 지원
+- 스칼라 계수를 각 행렬에 곱한 후, 두 행렬의 곱셈 수행
+- 전치 여부를 고려하여 내측 차원 호환성 검증
+- 결과 행렬을 새로 할당하여 반환
 
 **사용 예시**:
 ```c
-// 2×3 행렬 A와 3×2 행렬 B 생성
+// C = 1.0 * A * B^T (A: 2x3, B: 2x3 -> B^T: 3x2, C: 2x2)
 mat_t *A = Mat(2, 3, DOUBLE);
-mat_t *B = Mat(3, 2, DOUBLE);
+mat_t *B = Mat(2, 3, DOUBLE);
+// ... A, B 행렬 초기화 ...
 
-// 행렬 A 설정: [[1, 2, 3], [4, 5, 6]]
-MatSetD(A, 0, 0, 1.0); MatSetD(A, 0, 1, 2.0); MatSetD(A, 0, 2, 3.0);
-MatSetD(A, 1, 0, 4.0); MatSetD(A, 1, 1, 5.0); MatSetD(A, 1, 2, 6.0);
-
-// 행렬 B 설정: [[1, 2], [3, 4], [5, 6]]
-MatSetD(B, 0, 0, 1.0); MatSetD(B, 0, 1, 2.0);
-MatSetD(B, 1, 0, 3.0); MatSetD(B, 1, 1, 4.0);
-MatSetD(B, 2, 0, 5.0); MatSetD(B, 2, 1, 6.0);
-
-// C = 2*A * 0.5*B (2×3 × 3×2 = 2×2)
-mat_t *C = MatMul(2.0, A, false, 0.5, B, false);
+mat_t *C = MatMul(1.0, A, false, 1.0, B, true);
 if (C) {
-    printf("C = 2*A * 0.5*B (2×2):\n");
-    for (int i = 0; i < C->rows; i++) {
-        for (int j = 0; j < C->cols; j++) {
-            printf("%6.0f", MatGetD(C, i, j));
-        }
-        printf("\n");
-    }
+    // 결과 행렬 C 사용
+    FreeMat(C);
 }
 
-// D = A^T * B^T (3×2 × 2×3 = 3×3)
-mat_t *D = MatMul(1.0, A, true, 1.0, B, true);
-if (D) {
-    printf("\nD = A^T * B^T (3×3):\n");
-    for (int i = 0; i < D->rows; i++) {
-        for (int j = 0; j < D->cols; j++) {
-            printf("%6.0f", MatGetD(D, i, j));
-        }
-        printf("\n");
-    }
-}
-
-// 벡터 내적 예시: v^T * v (1×3 × 3×1 = 1×1)
-mat_t *v = Mat(3, 1, DOUBLE);
-MatSetD(v, 0, 0, 1.0); MatSetD(v, 1, 0, 2.0); MatSetD(v, 2, 0, 3.0);
-
-mat_t *dot_result = MatMul(1.0, v, true, 1.0, v, false);
-if (dot_result) {
-    printf("\nv^T * v = %.0f (벡터 내적)\n", MatGetD(dot_result, 0, 0));
-}
-
-FreeMat(A); FreeMat(B); FreeMat(C); FreeMat(D); FreeMat(v); FreeMat(dot_result);
+FreeMat(A); FreeMat(B);
 ```
 
 </details>
 
-#### 5.5.4 MatMulIn() - 제자리 곱셈
+#### 5.5.4 MatMulIn() - 제자리 행렬 곱셈
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 제자리 일반화 행렬 곱셈 $A = a \cdot A^{T_A} \times b \cdot B^{T_B}$
+**목적**: 제자리 일반화 행렬 곱셈
 
 **입력**:
 - `mat_t *A`: 입력/출력 행렬
@@ -1358,6 +1315,12 @@ FreeMat(A); FreeMat(B); FreeMat(C); FreeMat(D); FreeMat(v); FreeMat(dot_result);
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
+
+**GNSS 수식**:
+$$ \mathbf{A} = (a \cdot \mathbf{A}^{(\text{T})}) \cdot (b \cdot \mathbf{B}^{(\text{T})}) $$
+- $a, b$: 스칼라 계수
+- $\mathbf{A}^{(\text{T})}$: `trA` 값에 따라 $\mathbf{A}$ 또는 $\mathbf{A}^T$
+- $\mathbf{B}^{(\text{T})}$: `trB` 값에 따라 $\mathbf{B}$ 또는 $\mathbf{B}^T$
 
 **함수 로직**:
 - 일반화 곱셈 계산 후 결과로 A를 교체
@@ -1420,91 +1383,45 @@ FreeMat(A); FreeMat(B); FreeMat(C);
 
 </details>
 
-#### 5.5.5 MatInv() - 행렬 역행렬
+#### 5.5.5 MatInv() - 일반화 행렬 역행렬
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 일반화 행렬 역행렬 계산 $A_i = \text{inv}(a \cdot A^{T_A})$
+**목적**: 행렬의 스케일링된 역행렬 계산
 
 **입력**:
-- `double a`: 행렬 A의 스칼라 계수
-- `const mat_t *A`: 입력 행렬 (정사각행렬)
-- `bool trA`: A의 전치 플래그 (true면 $A^T$ 사용)
+- `double a`: 행렬 A의 스케일링 계수
+- `const mat_t *A`: 입력 행렬 (정방행렬이어야 함)
+- `bool trA`: A의 전치 여부 (true: 전치, false: 비전치)
 
 **출력**:
-- `mat_t *`: 역행렬 (오류 시 NULL)
+- `mat_t *`: 결과 역행렬 (오류 또는 특이행렬 시 NULL)
+
+**GNSS 수식**:
+$$ \mathbf{A}_{inv} = \text{inv}(a \cdot \mathbf{A}^{(\text{T})}) $$
+- $a$: 스칼라 계수
+- $\mathbf{A}^{(\text{T})}$: `trA` 값에 따라 $\mathbf{A}$ 또는 $\mathbf{A}^T$
 
 **함수 로직**:
-- LU 분해를 이용한 역행렬 계산
-- 특이행렬 검출 (행렬식이 0에 가까운 경우)
-- DOUBLE 타입만 지원
+- LU 분해를 사용하여 역행렬 계산
+- 스케일링 및 전치 연산 후 역행렬 계산
+- 입력 행렬이 정방행렬이고 DOUBLE 타입인지 검증
+- 특이(singular) 행렬일 경우 NULL 반환
 
 **사용 예시**:
 ```c
-// 3×3 가역행렬 생성
+// B = inv(A)
 mat_t *A = Mat(3, 3, DOUBLE);
+// ... A 행렬 초기화 (역행렬이 존재하는 행렬로) ...
 
-// 가역행렬 설정: [[2, 1, 0], [1, 2, 1], [0, 1, 2]]
-MatSetD(A, 0, 0, 2.0); MatSetD(A, 0, 1, 1.0); MatSetD(A, 0, 2, 0.0);
-MatSetD(A, 1, 0, 1.0); MatSetD(A, 1, 1, 2.0); MatSetD(A, 1, 2, 1.0);
-MatSetD(A, 2, 0, 0.0); MatSetD(A, 2, 1, 1.0); MatSetD(A, 2, 2, 2.0);
-
-printf("원본 행렬 A:\n");
-for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 3; j++) {
-        printf("%6.1f", MatGetD(A, i, j));
-    }
-    printf("\n");
+mat_t *B = MatInv(1.0, A, false);
+if (B) {
+    // 결과 행렬 B 사용
+    // (A * B)가 단위행렬인지 검증하여 확인 가능
+    FreeMat(B);
 }
 
-// A_inv = inv(A) 계산
-mat_t *A_inv = MatInv(1.0, A, false);
-if (A_inv) {
-    printf("\nA의 역행렬:\n");
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            printf("%8.4f", MatGetD(A_inv, i, j));
-        }
-        printf("\n");
-    }
-
-    // 검증: A * A_inv = I
-    mat_t *I_check = MatMul(1.0, A, false, 1.0, A_inv, false);
-    if (I_check) {
-        printf("\n검증 A * A_inv (단위행렬이어야 함):\n");
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                printf("%8.4f", MatGetD(I_check, i, j));
-            }
-            printf("\n");
-        }
-        FreeMat(I_check);
-    }
-}
-
-// 스칼라 곱셈 역행렬: inv(2*A^T)
-mat_t *scaled_inv = MatInv(2.0, A, true);
-if (scaled_inv) {
-    printf("\ninv(2*A^T):\n");
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
-            printf("%8.4f", MatGetD(scaled_inv, i, j));
-        }
-        printf("\n");
-    }
-}
-
-// 특이행렬 테스트 (역행렬이 존재하지 않음)
-mat_t *singular = Mat(2, 2, DOUBLE);
-MatSetD(singular, 0, 0, 1.0); MatSetD(singular, 0, 1, 2.0);
-MatSetD(singular, 1, 0, 2.0); MatSetD(singular, 1, 1, 4.0);  // 두 번째 행이 첫 번째 행의 2배
-
-mat_t *singular_inv = MatInv(1.0, singular, false);
-if (singular_inv == NULL) {
-    printf("\n특이행렬의 역행렬 계산 실패 (예상된 결과)\n");
-}
-
-FreeMat(A); FreeMat(A_inv); FreeMat(scaled_inv); FreeMat(singular);
+FreeMat(A);
 ```
 
 </details>
@@ -1513,7 +1430,7 @@ FreeMat(A); FreeMat(A_inv); FreeMat(scaled_inv); FreeMat(singular);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 제자리 일반화 행렬 역행렬 $A = \text{inv}(a \cdot A^{T_A})$
+**목적**: 제자리 일반화 행렬 역행렬
 
 **입력**:
 - `mat_t *A`: 입력/출력 행렬 (정사각행렬)
@@ -1522,6 +1439,11 @@ FreeMat(A); FreeMat(A_inv); FreeMat(scaled_inv); FreeMat(singular);
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
+
+**GNSS 수식**:
+$$ \mathbf{A} = \text{inv}(a \cdot \mathbf{A}^{(\text{T})}) $$
+- $a$: 스칼라 계수
+- $\mathbf{A}^{(\text{T})}$: `trA` 값에 따라 $\mathbf{A}$ 또는 $\mathbf{A}^T$
 
 **함수 로직**:
 - 일반화 역행렬 계산 후 결과를 A에 복사
@@ -1608,74 +1530,39 @@ FreeMat(A); FreeMat(A_backup); FreeMat(B);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 벡터 내적 계산 $c = \boldsymbol{a}^T \cdot \boldsymbol{b}$
+**목적**: 두 벡터의 내적(dot product)을 계산
 
 **입력**:
-- `const mat_t *a`: 첫 번째 벡터 (N×1, DOUBLE 타입)
-- `const mat_t *b`: 두 번째 벡터 (N×1, DOUBLE 타입)
-- `double *c`: 내적 결과 (출력)
+- `const mat_t *a`: 첫 번째 벡터 (N×1 또는 1×N)
+- `const mat_t *b`: 두 번째 벡터 (N×1 또는 1×N)
+- `double *c`: 계산된 내적 결과를 저장할 포인터
 
 **출력**:
-- `int`: 성공 시 1, 실패 시 0
+- `int`: 성공 시 1, 실패(차원 불일치 등) 시 0
+
+**GNSS 수식**:
+$$ c = \boldsymbol{a} \cdot \boldsymbol{b} = \sum_{i=1}^{N} a_i b_i $$
 
 **함수 로직**:
-- 열벡터(N×1) 형태만 지원
-- 같은 차원의 벡터 검증
-- DOUBLE 타입만 지원
+- 두 벡터의 차원이 동일한지 검증
+- 각 요소의 곱을 누적하여 합산
+- 결과를 출력 매개변수 `c`에 저장
+- DOUBLE 타입 벡터 전용
 
 **사용 예시**:
 ```c
-// 3×1 벡터 생성
-mat_t *a = Mat(3, 1, DOUBLE);
-mat_t *b = Mat(3, 1, DOUBLE);
+mat_t *v1 = Mat(3, 1, DOUBLE);
+mat_t *v2 = Mat(3, 1, DOUBLE);
+// ... v1, v2 벡터 초기화 ...
 
-// 벡터 a 설정: [1, 2, 3]^T
-MatSetD(a, 0, 0, 1.0);
-MatSetD(a, 1, 0, 2.0);
-MatSetD(a, 2, 0, 3.0);
-
-// 벡터 b 설정: [4, 5, 6]^T
-MatSetD(b, 0, 0, 4.0);
-MatSetD(b, 1, 0, 5.0);
-MatSetD(b, 2, 0, 6.0);
-
-// 벡터 내적 계산: a^T * b = 1*4 + 2*5 + 3*6 = 32
-double dot_result;
-int success = Dot(a, b, &dot_result);
-if (success) {
-    printf("벡터 a와 b의 내적: %.1f\n", dot_result);
+double result;
+if (Dot(v1, v2, &result)) {
+    printf("벡터 내적 결과: %.2f\n", result);
+} else {
+    printf("벡터 내적 계산 실패 (차원 불일치 등)\n");
 }
 
-// 벡터 노름 제곱 계산: ||a||^2 = a^T * a
-double norm_squared;
-Dot(a, a, &norm_squared);
-printf("벡터 a의 노름 제곱: %.1f\n", norm_squared);
-printf("벡터 a의 노름: %.3f\n", sqrt(norm_squared));
-
-// 영벡터와의 내적
-mat_t *zero_vec = Zeros(3, 1, DOUBLE);
-double zero_dot;
-Dot(a, zero_vec, &zero_dot);
-printf("벡터 a와 영벡터의 내적: %.1f\n", zero_dot);
-
-// 직교 벡터 예시
-mat_t *orthogonal = Mat(3, 1, DOUBLE);
-MatSetD(orthogonal, 0, 0, 1.0);   // [1, -2, 1]^T
-MatSetD(orthogonal, 1, 0, -2.0);  // a와 직교하는 벡터
-MatSetD(orthogonal, 2, 0, 1.0);
-
-double ortho_dot;
-Dot(a, orthogonal, &ortho_dot);
-printf("직교 벡터와의 내적: %.1f (0에 가까워야 함)\n", ortho_dot);
-
-// 차원 불일치 테스트
-mat_t *wrong_size = Mat(4, 1, DOUBLE);
-int fail_result = Dot(a, wrong_size, &dot_result);
-if (!fail_result) {
-    printf("차원 불일치로 인한 실패 (예상된 결과)\n");
-}
-
-FreeMat(a); FreeMat(b); FreeMat(zero_vec); FreeMat(orthogonal); FreeMat(wrong_size);
+FreeMat(v1); FreeMat(v2);
 ```
 
 </details>
@@ -1684,93 +1571,41 @@ FreeMat(a); FreeMat(b); FreeMat(zero_vec); FreeMat(orthogonal); FreeMat(wrong_si
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 3차원 외적 계산 $\boldsymbol{c} = \boldsymbol{a} \times \boldsymbol{b}$
+**목적**: 두 3차원 벡터의 외적(cross product)을 계산
 
 **입력**:
-- `const mat_t *a`: 첫 번째 벡터 (3×1, DOUBLE 타입)
-- `const mat_t *b`: 두 번째 벡터 (3×1, DOUBLE 타입)
-- `mat_t *c`: 외적 결과 벡터 (3×1, DOUBLE 타입, 출력)
+- `const mat_t *a`: 첫 번째 3차원 벡터 (3×1)
+- `const mat_t *b`: 두 번째 3차원 벡터 (3×1)
+- `mat_t *c`: 계산된 외적 결과를 저장할 3차원 벡터 (3×1)
 
 **출력**:
-- `int`: 성공 시 1, 실패 시 0
+- `int`: 성공 시 1, 실패(차원 불일치 등) 시 0
+
+**GNSS 수식**:
+$$ \boldsymbol{c} = \boldsymbol{a} \times \boldsymbol{b} = \begin{bmatrix} a_2 b_3 - a_3 b_2 \\ a_3 b_1 - a_1 b_3 \\ a_1 b_2 - a_2 b_1 \end{bmatrix} $$
 
 **함수 로직**:
-- 3차원 벡터만 지원 (3×1 형태)
-- 외적 공식: $\boldsymbol{c} = [a_2b_3 - a_3b_2, a_3b_1 - a_1b_3, a_1b_2 - a_2b_1]^T$
-- DOUBLE 타입만 지원
+- 입력 벡터들이 3x1 차원인지 검증
+- 외적 공식에 따라 계산 수행
+- 결과를 출력 매개변수 `c`에 저장
+- DOUBLE 타입 벡터 전용
 
 **사용 예시**:
 ```c
-// 3×1 벡터 생성
-mat_t *a = Mat(3, 1, DOUBLE);
-mat_t *b = Mat(3, 1, DOUBLE);
-mat_t *c = Mat(3, 1, DOUBLE);
+mat_t *v1 = Mat(3, 1, DOUBLE);
+mat_t *v2 = Mat(3, 1, DOUBLE);
+mat_t *v_cross = Mat(3, 1, DOUBLE);
+// ... v1, v2 벡터 초기화 ...
 
-// 벡터 a 설정: [1, 0, 0]^T (x축 단위벡터)
-MatSetD(a, 0, 0, 1.0);
-MatSetD(a, 1, 0, 0.0);
-MatSetD(a, 2, 0, 0.0);
-
-// 벡터 b 설정: [0, 1, 0]^T (y축 단위벡터)
-MatSetD(b, 0, 0, 0.0);
-MatSetD(b, 1, 0, 1.0);
-MatSetD(b, 2, 0, 0.0);
-
-// 외적 계산: x × y = z
-int success = Cross3(a, b, c);
-if (success) {
-    printf("x축 × y축 = z축:\n");
-    printf("[%.1f, %.1f, %.1f]^T\n",
-           MatGetD(c, 0, 0), MatGetD(c, 1, 0), MatGetD(c, 2, 0));
+if (Cross3(v1, v2, v_cross)) {
+    // 결과 벡터 v_cross 사용
+    printf("외적 벡터: [%.2f, %.2f, %.2f]\n",
+           MatGetD(v_cross, 0, 0),
+           MatGetD(v_cross, 1, 0),
+           MatGetD(v_cross, 2, 0));
 }
 
-// 일반적인 벡터 외적 예시
-MatSetD(a, 0, 0, 1.0); MatSetD(a, 1, 0, 2.0); MatSetD(a, 2, 0, 3.0);
-MatSetD(b, 0, 0, 4.0); MatSetD(b, 1, 0, 5.0); MatSetD(b, 2, 0, 6.0);
-
-Cross3(a, b, c);
-printf("\n[1,2,3] × [4,5,6] = [%.1f, %.1f, %.1f]^T\n",
-       MatGetD(c, 0, 0), MatGetD(c, 1, 0), MatGetD(c, 2, 0));
-
-// 외적의 성질 검증: a × b = -(b × a)
-mat_t *c_reverse = Mat(3, 1, DOUBLE);
-Cross3(b, a, c_reverse);
-printf("반대 순서: [4,5,6] × [1,2,3] = [%.1f, %.1f, %.1f]^T\n",
-       MatGetD(c_reverse, 0, 0), MatGetD(c_reverse, 1, 0), MatGetD(c_reverse, 2, 0));
-
-// 외적 결과가 두 벡터에 직교함을 검증
-double dot_ac, dot_bc;
-Dot(a, c, &dot_ac);
-Dot(b, c, &dot_bc);
-printf("\n직교성 검증:\n");
-printf("a · (a × b) = %.6f (0이어야 함)\n", dot_ac);
-printf("b · (a × b) = %.6f (0이어야 함)\n", dot_bc);
-
-// 평행한 벡터의 외적 (영벡터)
-mat_t *parallel = Mat(3, 1, DOUBLE);
-MatSetD(parallel, 0, 0, 2.0); MatSetD(parallel, 1, 0, 4.0); MatSetD(parallel, 2, 0, 6.0);
-
-mat_t *zero_cross = Mat(3, 1, DOUBLE);
-Cross3(a, parallel, zero_cross);  // [1,2,3] × [2,4,6] = [0,0,0]
-printf("\n평행 벡터 외적: [%.1f, %.1f, %.1f]^T (영벡터)\n",
-       MatGetD(zero_cross, 0, 0), MatGetD(zero_cross, 1, 0), MatGetD(zero_cross, 2, 0));
-
-// 외적의 크기 = |a||b|sin(θ)
-double norm_a = Norm(a);
-double norm_b = Norm(b);
-double norm_cross = Norm(c);
-double dot_ab;
-Dot(a, b, &dot_ab);
-double cos_theta = dot_ab / (norm_a * norm_b);
-double sin_theta = sqrt(1.0 - cos_theta * cos_theta);
-double expected_norm = norm_a * norm_b * sin_theta;
-
-printf("\n외적 크기 검증:\n");
-printf("||a × b|| = %.6f\n", norm_cross);
-printf("||a|| ||b|| sin(θ) = %.6f\n", expected_norm);
-
-FreeMat(a); FreeMat(b); FreeMat(c); FreeMat(c_reverse);
-FreeMat(parallel); FreeMat(zero_cross);
+FreeMat(v1); FreeMat(v2); FreeMat(v_cross);
 ```
 
 </details>
@@ -1779,108 +1614,34 @@ FreeMat(parallel); FreeMat(zero_cross);
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 벡터의 유클리드 노름 계산 $||\boldsymbol{a}||_2 = \sqrt{\sum_{i} a_i^2}$
+**목적**: 벡터의 유클리드 노름(L2 노름 또는 크기)을 계산
 
 **입력**:
-- `const mat_t *a`: 입력 벡터 (N×1 또는 1×N, DOUBLE 타입)
+- `const mat_t *a`: 크기를 계산할 벡터 (N×1 또는 1×N)
 
 **출력**:
-- `double`: 노름 결과 (오류 시 0.0)
+- `double`: 계산된 유클리드 노름 값 (오류 시 0.0)
+
+**GNSS 수식**:
+$$ ||\boldsymbol{a}||_2 = \sqrt{\sum_{i=1}^{N} a_i^2} $$
 
 **함수 로직**:
-- 열벡터(N×1) 또는 행벡터(1×N) 지원
-- 유클리드 노름 공식 적용
-- DOUBLE 타입만 지원
+- 벡터의 각 요소를 제곱하여 더한 후, 제곱근을 취함
+- 내부적으로 `Dot(a, a, &result)`를 호출하여 효율적으로 계산
+- DOUBLE 타입 벡터 전용
 
 **사용 예시**:
 ```c
-// 3×1 열벡터 생성
-mat_t *col_vec = Mat(3, 1, DOUBLE);
+mat_t *v = Mat(3, 1, DOUBLE);
+// ... v 벡터 초기화 ([3, 4, 0] 으로 설정하면 Norm은 5가 됨)
+MatSetD(v, 0, 0, 3.0);
+MatSetD(v, 1, 0, 4.0);
+MatSetD(v, 2, 0, 0.0);
 
-// 벡터 설정: [3, 4, 0]^T (3-4-5 직각삼각형)
-MatSetD(col_vec, 0, 0, 3.0);
-MatSetD(col_vec, 1, 0, 4.0);
-MatSetD(col_vec, 2, 0, 0.0);
+double norm_val = Norm(v);
+printf("벡터의 유클리드 노름(크기): %.2f\n", norm_val);
 
-// 노름 계산: ||[3,4,0]|| = sqrt(9+16+0) = 5
-double norm1 = Norm(col_vec);
-printf("벡터 [3,4,0]의 노름: %.1f\n", norm1);
-
-// 1×4 행벡터 생성
-mat_t *row_vec = Mat(1, 4, DOUBLE);
-MatSetD(row_vec, 0, 0, 1.0);
-MatSetD(row_vec, 0, 1, 2.0);
-MatSetD(row_vec, 0, 2, 2.0);
-MatSetD(row_vec, 0, 3, 0.0);
-
-// 행벡터 노름 계산: ||[1,2,2,0]|| = sqrt(1+4+4+0) = 3
-double norm2 = Norm(row_vec);
-printf("벡터 [1,2,2,0]의 노름: %.1f\n", norm2);
-
-// 단위벡터 생성 및 검증
-mat_t *unit_vec = Mat(3, 1, DOUBLE);
-double original_norm = Norm(col_vec);
-for (int i = 0; i < 3; i++) {
-    double val = MatGetD(col_vec, i, 0) / original_norm;
-    MatSetD(unit_vec, i, 0, val);
-}
-
-double unit_norm = Norm(unit_vec);
-printf("단위벡터의 노름: %.6f (1.0이어야 함)\n", unit_norm);
-
-// 영벡터의 노름
-mat_t *zero_vec = Zeros(5, 1, DOUBLE);
-double zero_norm = Norm(zero_vec);
-printf("영벡터의 노름: %.1f\n", zero_norm);
-
-// 다양한 차원의 벡터 노름
-mat_t *high_dim = Mat(10, 1, DOUBLE);
-for (int i = 0; i < 10; i++) {
-    MatSetD(high_dim, i, 0, 1.0);  // 모든 원소가 1
-}
-double high_norm = Norm(high_dim);  // sqrt(10) ≈ 3.162
-printf("10차원 일벡터의 노름: %.3f\n", high_norm);
-
-// 노름의 성질 검증: ||ka|| = |k| * ||a||
-double scale = -2.5;
-mat_t *scaled_vec = Mat(3, 1, DOUBLE);
-for (int i = 0; i < 3; i++) {
-    double val = MatGetD(col_vec, i, 0) * scale;
-    MatSetD(scaled_vec, i, 0, val);
-}
-
-double scaled_norm = Norm(scaled_vec);
-double expected_norm = fabs(scale) * norm1;
-printf("\n스케일링 성질 검증:\n");
-printf("||%.1f * a|| = %.3f\n", scale, scaled_norm);
-printf("|%.1f| * ||a|| = %.3f\n", scale, expected_norm);
-
-// 삼각부등식 검증: ||a + b|| <= ||a|| + ||b||
-mat_t *vec_a = Mat(2, 1, DOUBLE);
-mat_t *vec_b = Mat(2, 1, DOUBLE);
-mat_t *vec_sum = Mat(2, 1, DOUBLE);
-
-MatSetD(vec_a, 0, 0, 3.0); MatSetD(vec_a, 1, 0, 4.0);  // ||a|| = 5
-MatSetD(vec_b, 0, 0, 1.0); MatSetD(vec_b, 1, 0, 1.0);  // ||b|| = sqrt(2)
-
-// a + b 계산
-for (int i = 0; i < 2; i++) {
-    double sum = MatGetD(vec_a, i, 0) + MatGetD(vec_b, i, 0);
-    MatSetD(vec_sum, i, 0, sum);
-}
-
-double norm_a = Norm(vec_a);
-double norm_b = Norm(vec_b);
-double norm_sum = Norm(vec_sum);
-
-printf("\n삼각부등식 검증:\n");
-printf("||a|| = %.3f, ||b|| = %.3f\n", norm_a, norm_b);
-printf("||a + b|| = %.3f\n", norm_sum);
-printf("||a|| + ||b|| = %.3f\n", norm_a + norm_b);
-printf("삼각부등식 성립: %s\n", (norm_sum <= norm_a + norm_b + 1e-10) ? "예" : "아니오");
-
-FreeMat(col_vec); FreeMat(row_vec); FreeMat(unit_vec); FreeMat(zero_vec);
-FreeMat(high_dim); FreeMat(scaled_vec); FreeMat(vec_a); FreeMat(vec_b); FreeMat(vec_sum);
+FreeMat(v);
 ```
 
 </details>
@@ -1934,12 +1695,12 @@ FreeMat(A);
 **목적**: 가중 최소제곱법 추정 $\hat{\boldsymbol{x}} = (\mathbf{H}^T \mathbf{W} \mathbf{H})^{-1} \mathbf{H}^T \mathbf{W} \boldsymbol{y}$
 
 **입력**:
-- `const mat_t *H`: 설계 행렬 (m×n, DOUBLE 타입) - 관측 모델의 야코비안 행렬
-- `const mat_t *y`: 관측 벡터 (m×1, DOUBLE 타입, optional) - 실제 관측값 또는 잔차
-- `const mat_t *R`: 관측 노이즈 공분산 행렬 (m×m, DOUBLE 타입, optional) - 관측 불확실성
-- `mat_t *x`: 상태 벡터 (n×1, DOUBLE 타입, 출력, optional) - 추정된 매개변수
-- `mat_t *P`: 상태 공분산 행렬 (n×n, DOUBLE 타입, 출력, optional) - 추정 불확실성
-- `mat_t *Hl`: 최소제곱 역행렬 (n×m, DOUBLE 타입, 출력, optional) - 일반화 역행렬
+- `const mat_t *H`: (필수) 설계 행렬 (m×n, DOUBLE 타입)
+- `const mat_t *y`: (선택적) 관측 벡터 (m×1, DOUBLE 타입). `x` 추정 시 필요.
+- `const mat_t *R`: (선택적) 관측 노이즈 공분산 (m×m, DOUBLE 타입). NULL일 경우 단위행렬로 처리.
+- `mat_t *x`: (선택적 출력) 상태 벡터 (n×1, DOUBLE 타입).
+- `mat_t *P`: (선택적 출력) 상태 공분산 행렬 (n×n, DOUBLE 타입).
+- `mat_t *Hl`: (선택적 출력) 최소제곱 역행렬 (n×m, DOUBLE 타입).
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
@@ -1947,18 +1708,18 @@ FreeMat(A);
 **함수 로직**:
 
 **1. 가중치 행렬 계산**:
-- $\mathbf{W} = \mathbf{R}^{-1}$ (R이 NULL이면 $\mathbf{W} = \mathbf{I}$)
+- 가중치 행렬 $\mathbf{W} = \mathbf{R}^{-1}$을 계산합니다. (`R`이 NULL이면 $\mathbf{W} = \mathbf{I}$로 간주)
 
-**2. 정보 행렬 계산**:
-- $\mathbf{H}^T \mathbf{W} \mathbf{H}$ (정보 행렬)
-- $\mathbf{Q} = (\mathbf{H}^T \mathbf{W} \mathbf{H})^{-1}$ (상태 공분산)
+**2. 정보 행렬 및 기본 공분산 계산**:
+- 정보 행렬 $\mathbf{H}^T \mathbf{W} \mathbf{H}$를 계산합니다.
+- 이의 역행렬 $\mathbf{Q} = (\mathbf{H}^T \mathbf{W} \mathbf{H})^{-1}$을 계산합니다. 이것은 상태 추정의 기본 공분산이 됩니다.
 
-**3. 최소제곱 역행렬**:
-- $\mathbf{L} = \mathbf{Q} \mathbf{H}^T \mathbf{W}$
+**3. 최소제곱 역행렬 계산**:
+- 최소제곱 역행렬 $\mathbf{L} = \mathbf{Q} \mathbf{H}^T \mathbf{W}$를 계산합니다. `Hl`이 NULL이 아니면 이 값을 `Hl`에 저장합니다.
 
-**4. 상태 추정 및 공분산**:
-- $\hat{\boldsymbol{x}} = \mathbf{L} \boldsymbol{y}$ (y가 제공된 경우)
-- $\mathbf{P} = \mathbf{L} \mathbf{R} \mathbf{L}^T$ (공분산 전파)
+**4. 상태 추정 및 공분산 전파**:
+- `y`와 `x`가 모두 NULL이 아닐 경우, 상태 벡터 $\hat{\boldsymbol{x}} = \mathbf{L} \boldsymbol{y}$를 계산하여 `x`에 저장합니다.
+- `P`가 NULL이 아닐 경우, 오차 전파 법칙에 따라 최종 상태 공분산 $\mathbf{P} = \mathbf{L} \mathbf{R} \mathbf{L}^T$를 계산하여 저장합니다. 이는 2단계에서 계산한 $\mathbf{Q}$와 수학적으로 동일합니다.
 
 **사용 예시**:
 ```c
@@ -2053,16 +1814,17 @@ FreeMat(R); FreeMat(x_weighted); FreeMat(P_weighted); FreeMat(Hl_only);
 
 **입력**:
 - `const mat_t *H`: 관측 행렬 (m×n, DOUBLE 타입) - 선형화된 관측 모델
-- `const mat_t *v`: 측정 잔차 벡터 (m×1, DOUBLE 타입, optional) - 혁신 벡터
-- `const mat_t *R`: 관측 노이즈 공분산 (m×m, DOUBLE 타입, optional) - 측정 불확실성
-- `mat_t *x`: 상태 벡터 (n×1, DOUBLE 타입, 입출력, optional) - 추정 상태
-- `mat_t *P`: 상태 공분산 (n×n, DOUBLE 타입, 입출력, optional) - 상태 불확실성
-- `mat_t *K`: 칼만 이득 (n×m, DOUBLE 타입, 출력, optional) - 최적 이득 행렬
+- `const mat_t *v`: 측정 잔차(innovation) 벡터 (m×1, DOUBLE 타입) - `z - h(x_prior)` 형태로 미리 계산되어야 함
+- `const mat_t *R`: 관측 노이즈 공분산 (m×m, DOUBLE 타입)
+- `mat_t *x`: (선택적 입출력) 상태 벡터 (n×1, DOUBLE 타입)
+- `mat_t *P`: (필수 입출력) 상태 공분산 (n×n, DOUBLE 타입)
+- `mat_t *K`: (선택적 출력) 칼만 이득 (n×m, DOUBLE 타입)
 
 **출력**:
 - `int`: 성공 시 1, 실패 시 0
 
 **함수 로직**:
+이 함수는 **측정 잔차(innovation) `v`를 직접 입력받습니다.** 따라서 사전에 `v = z - h(x)` (여기서 z는 실제 관측값) 계산이 필요합니다.
 
 **1. 혁신 공분산 계산**:
 - $\mathbf{S} = \mathbf{H} \mathbf{P}^{-} \mathbf{H}^T + \mathbf{R}$
@@ -2070,7 +1832,7 @@ FreeMat(R); FreeMat(x_weighted); FreeMat(P_weighted); FreeMat(Hl_only);
 **2. 칼만 이득 계산**:
 - $\mathbf{K} = \mathbf{P}^{-} \mathbf{H}^T \mathbf{S}^{-1}$
 
-**3. 상태 업데이트** (x가 제공된 경우):
+**3. 상태 업데이트** (`x`가 NULL이 아닌 경우):
 - $\boldsymbol{x}^{+} = \boldsymbol{x}^{-} + \mathbf{K} \boldsymbol{v}$
 
 **4. Joseph 형태 공분산 업데이트**:

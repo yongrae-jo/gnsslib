@@ -57,13 +57,13 @@ extern "C" {
 #define FREQ_S          2492.028E6              // IRNSS S
 
 #define NRCV            2                       // Number of receivers
-#define NFREQ           2                       // Number of frequency index
+#define NFREQ           5                       // Number of frequency index
 #define NBAND           9                       // Number of frequency bands
 
 #define SYS_GPS         1                       // GPS system flag
-#define SYS_GLO         0                       // GLO system flag
+#define SYS_GLO         1                       // GLO system flag
 #define SYS_GAL         1                       // GAL system flag
-#define SYS_BDS         1                       // BDS system flag
+#define SYS_BDS         0                       // BDS system flag
 #define SYS_QZS         0                       // QZS system flag
 #define SYS_IRN         0                       // IRN system flag
 #define SYS_SBS         0                       // SBS system flag
@@ -184,6 +184,13 @@ extern "C" {
 
 #define MAX_ERR_EPH     300.0                   // Maximum error of broadcast ephemeris
 #define MAX_ERR_GAL     500.0                   // Maximum error of Galileo broadcast ephemeris
+
+#define NLEAPS          64                      // Number of leaps table
+
+#define  STA_STR_SIZE   64                      // Number of characters in station parameter string
+#define  SAT_STR_SIZE   4                       // Number of characters in satellite string (CXX)
+#define  CAL_STR_SIZE   24                      // Number of characters in calendar string (YYYY/MM/DD HH:MM:SS.sss)
+#define CODE_STR_SIZE   4                       // Number of characters in observation code string (LXX)
 
 // =============================================================================
 // End of header

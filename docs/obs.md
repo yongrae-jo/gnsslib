@@ -418,7 +418,7 @@ printf("정렬 후: %d개\n", obsSet.n);            // "정렬 후: 2개"
 **목적**: 관측 코드 문자열을 고유 코드 ID로 변환
 
 **입력**:
-- `char *str`: 관측 코드 문자열 ("LXX" 형식)
+- `codeStr_t codeStr`: 관측 코드 문자열 구조체 ("LXX" 형식)
 
 **출력**:
 - `int`: 코드 ID (고유 식별자), 오류 시 0
@@ -559,8 +559,7 @@ int l5i_code = Str2Code((codeStr_t){"L5I"});    // L5I 코드
 double l1_freq = Code2Freq(gps_sat, l1c_code); // 1575420000.0 Hz
 double l5_freq = Code2Freq(gps_sat, l5i_code); // 1176450000.0 Hz
 
-printf("GPS L1C: %.0f Hz\n", l1_freq);
-printf("GPS L5I: %.0f Hz\n", l5_freq);
+printf("GPS L1C 주파수: %.0f Hz\n", l1_freq);
 ```
 
 </details>
@@ -601,13 +600,7 @@ int gps_fidx = Code2Fidx(SYS_GPS, l5i_code);   // GPS: 3
 int gal_fidx = Code2Fidx(SYS_GAL, l5i_code);   // Galileo: 2
 int bds_fidx = Code2Fidx(SYS_BDS, l5i_code);   // BeiDou: 5
 
-printf("GPS L5I Fidx: %d\n", gps_fidx);        // 3
-printf("Galileo L5I Fidx: %d\n", gal_fidx);    // 2
-printf("BeiDou L5I Fidx: %d\n", bds_fidx);     // 5
-
-// 주파수별 관측 배열 인덱싱에 활용
-double gps_obs[6] = {0};
-if (gps_fidx > 0) gps_obs[gps_fidx] = 123.456;
+printf("GPS L5I 인덱스: %d\n", gps_fidx);
 ```
 
 </details>
@@ -723,7 +716,7 @@ printf("GLONASS L1: %.0f Hz\n", glo_l1);       // FCN에 따라 가변
 <details>
 <summary>상세 설명</summary>
 
-**목적**: 시스템별 주파수 인덱스($f_{idx}$)를 해당 시스템의 밴드 ID($b$)로 변환
+**목적**: 시스템별 주파수 인덱스 $f_{idx}$를 해당 시스템의 밴드 ID $b$로 변환
 
 **입력**:
 - `int sys`: 시스템 ID (1~7, GPS/GLONASS/Galileo/BeiDou/QZSS/IRNSS/SBAS)
@@ -754,7 +747,7 @@ $$
 #### GPS 시스템 주파수 매핑
 | Fidx | 밴드 | 주파수 (MHz) | 관측 코드 예시 | 특징 |
 |------|------|-------------|---------------|------|
-| 1    | 1    | 1575.42     | L1C           | Legacy C/A |
+| 1    | 1    | 1575.42     | L1C           | C/A 코드 |
 | 2    | 2    | 1227.60     | L2W           | Legacy P(Y) |
 | 3    | 5    | 1176.45     | L5I, L5Q, L5X | L5 |
 | 4    | 1    | 1575.42     | L1S, L1L, L1X | Modern L1C |
@@ -796,9 +789,9 @@ $$
 | 2    | 6    | 1268.52     | L6I           | B3 (BDS-2/3) |
 | 3    | 7    | 1207.14     | L7I           | B2 (BDS-2/3) |
 | 4    | 1    | 1575.42     | L1D, L1P, L1X | B1C (BDS-3)  |
-| 5    | 5    | 1176.45     | L5D, L5P, L5X | B2a (BDS-3)  |
-| 6    | 7    | 1207.14     | L7D, L7P, L7Z | B2b (BDS-3)  |
-| 7    | 8    | 1191.795    | L8D, L8P, L8X | B2ab (BDS-3) |
+| 5    | 7    | 1207.14     | L7D, L7P, L7Z | B2B (BDS-3)  |
+| 6    | 5    | 1176.45     | L5D, L5P, L5X | B2A (BDS-3)  |
+| 7    | 8    | 1191.795    | L8D, L8P, L8X | B2AB (BDS-3) |
 
 #### QZSS 시스템 주파수 매핑
 | Fidx | 밴드 | 주파수 (MHz) | 관측 코드 예시 | 설명 |
@@ -806,7 +799,7 @@ $$
 | 1    | 1    | 1575.42     | L1C           | L1C/A (Legacy) |
 | 2    | 2    | 1227.60     | L2S, L2L, L2X | L2C            |
 | 3    | 5    | 1176.45     | L5I, L5Q, L5X | L5              |
-| 4    | 6    | 1278.75     | L6S, L6L, L6E, L6X | L6 (LEX)  |
+| 4    | 6    | 1278.75     | L6S, L6L, L6X | L6 (LEX)  |
 | 5    | 1    | 1575.42     | L1S, L1L, L1X | L1C (Modern)   |
 | 6    | 5    | 1176.45     | L5D, L5P, L5Z | L5S (SBAS)     |
 
@@ -899,11 +892,13 @@ printf("GPS L1 밴드 주파수: %.0f Hz\n", band_freq);
 // 시스템별 주파수 인덱스 계산
 codeStr_t l5i_str = {"L5I"};
 int l5i_code = Str2Code(l5i_str);
-int gps_fidx = Code2Fidx(1, l5i_code);    // GPS: 3
-int gal_fidx = Code2Fidx(3, l5i_code);    // Galileo: 2
+int gps_fidx = Code2Fidx(SYS_GPS, l5i_code);    // GPS: 3
+int gal_fidx = Code2Fidx(SYS_GAL, l5i_code);    // Galileo: 2
+int bds_fidx = Code2Fidx(SYS_BDS, l5i_code);    // BeiDou: 5
 
 printf("GPS L5I 인덱스: %d\n", gps_fidx);
 printf("Galileo L5I 인덱스: %d\n", gal_fidx);
+printf("BeiDou L5I 인덱스: %d\n", bds_fidx);
 
 // 주파수 인덱스로 배열 접근
 double gps_obs_data[6] = {0};  // GPS 주파수별 관측값 배열
@@ -929,9 +924,9 @@ int band_id = Str2Band('7');              // 7
 
 ### 6.6 다중 시스템 처리
 ```c
-// 여러 시스템의 L5 주파수 비교 (가정 위성 인덱스 사용)
-int satellites[] = {5, 65, 100, 195, 250};  // 각 시스템 대표 위성 인덱스
-char *sys_names[] = {"GPS", "GAL", "BDS", "QZS", "IRN"};
+// 여러 시스템의 L5 주파수 비교 (실제 위성 인덱스 사용)
+int satellites[] = {5, 65, 139, 193, 250};  // GPS, GLO, GAL, QZS, IRN 위성 인덱스
+char *sys_names[] = {"GPS", "GLO", "GAL", "QZS", "IRN"};
 
 for (int i = 0; i < 5; i++) {
     double freq = Band2Freq(satellites[i], 5);    // L5 주파수
@@ -955,12 +950,12 @@ codeStr_t l5d_str = {"L5D"};
 
 // Legacy L1 신호 (Fidx 1)
 int l1c_code = Str2Code(l1c_str);
-int l1c_fidx = Code2Fidx(5, l1c_code);   // 1
+int l1c_fidx = Code2Fidx(SYS_QZS, l1c_code);   // 1
 double l1c_freq = Code2Freq(qzs_sat, l1c_code);
 
 // Modern L1 신호 (Fidx 5)
 int l1s_code = Str2Code(l1s_str);
-int l1s_fidx = Code2Fidx(5, l1s_code);   // 5
+int l1s_fidx = Code2Fidx(SYS_QZS, l1s_code);   // 5
 double l1s_freq = Code2Freq(qzs_sat, l1s_code);
 
 printf("QZSS L1C Legacy (Fidx %d): %.0f Hz\n", l1c_fidx, l1c_freq);
@@ -969,8 +964,8 @@ printf("QZSS L1S Modern (Fidx %d): %.0f Hz\n", l1s_fidx, l1s_freq);
 // L5 기본과 SBAS 신호 구분
 int l5i_code = Str2Code(l5i_str);
 int l5d_code = Str2Code(l5d_str);
-int l5i_fidx = Code2Fidx(5, l5i_code);   // 3 (기본 L5)
-int l5d_fidx = Code2Fidx(5, l5d_code);   // 6 (SBAS L5)
+int l5i_fidx = Code2Fidx(SYS_QZS, l5i_code);   // 3 (기본 L5)
+int l5d_fidx = Code2Fidx(SYS_QZS, l5d_code);   // 6 (SBAS L5)
 ```
 
 ---

@@ -1,11 +1,32 @@
 // =============================================================================
 // Satellite ephemeris functions
+//
+// -----------------------------------------------------------------------------
+// Yongrae Jo, 0727ggame@sju.ac.kr
 // =============================================================================
 
-#include "ephemeris.h"
-#include "common.h"
-#include "matrix.h"                     // for mat_t
+// Standard library
 #include <stddef.h>                     // for NULL
+#include <math.h>                       // for sqrt, sin, cos, atan2, fabs
+#include <stdlib.h>                     // for realloc, free
+
+// GNSS library
+#include "ephemeris.h"
+#include "common.h"                     // for common functions
+#include "matrix.h"                     // for matrix functions
+
+// =============================================================================
+// Macros
+// =============================================================================
+
+#define J2_GLO          1.0826257E-3            // 2nd zonal harmonic of geopotential (GLO)
+
+#define SIN_5           -0.08715574274765817    // sin(-5°)
+#define COS_5           0.9961946980917455      // cos(-5°)
+
+#define TSTEP           60.0                    // Time step for GLONASS breoadcast ephemeris (s)
+
+#define TOL_KEPLER      1E-13                   // Tolerance for Kepler's equation
 
 // =============================================================================
 // Static variables
@@ -442,26 +463,11 @@ void SetEphType(int sys, int type)
     if (sys < 1 || sys > NSYS) return;
 
     // Check if the broadcast ephemeris type is valid
-    if (Sys2Str(sys) == STR_GPS) {
-        if (type < 0 || type > 1) return;
+    if (Sys2Str(sys) == STR_GAL) {
+        if (type < 0 || type > 1) return; // GAL: 0 (I/NAV) or 1 (F/NAV)
     }
-    else if (Sys2Str(sys) == STR_GLO) {
-        if (type < 0 || type > 1) return;
-    }
-    else if (Sys2Str(sys) == STR_GAL) {
-        if (type < 0 || type > 2) return;
-    }
-    else if (Sys2Str(sys) == STR_BDS) {
-        if (type < 0 || type > 1) return;
-    }
-    else if (Sys2Str(sys) == STR_QZS) {
-        if (type < 0 || type > 1) return;
-    }
-    else if (Sys2Str(sys) == STR_IRN) {
-        if (type < 0 || type > 1) return;
-    }
-    else if (Sys2Str(sys) == STR_SBS) {
-        if (type < 0 || type > 1) return;
+    else {
+        if (type != 0) return;            // Others: 0 only
     }
 
     // Set broadcast ephemeris type
@@ -478,7 +484,7 @@ int Ura2Idx(double err)
         if (err <= URA_ERR[i]) return i;
     }
 
-    // Return error
+    // Return error if not found
     return -1;
 }
 
@@ -649,7 +655,7 @@ int iode, mat_t *rs, mat_t *dts, double *var, eph_t *eph)
     if (rs ) {for (int i = 0; i < 6; i++) MatSetD(rs , 0, i, 0.0);}
     if (dts) {for (int i = 0; i < 2; i++) MatSetD(dts, 0, i, 0.0);}
     if (var) {*var = 0.0;}
-    if (eph) {*eph = (eph_t){0, 0, 0, 0, 0, 0, -1};} // svh = -1;
+    if (eph) {*eph = (eph_t){.svh = -1};}
 
     // Check if the navigation data is valid
     if (!nav) return 0;
