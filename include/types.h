@@ -187,7 +187,7 @@ typedef struct obs {
     int    sat;                         // Satellite index
     int    code[NFREQ];                 // Observation code index
     double P   [NFREQ];                 // Pseudorange [m]
-    double L   [NFREQ];                 // Carrier phase [m]
+    double L   [NFREQ];                 // Carrier phase [cycle]
     double D   [NFREQ];                 // Doppler frequency [Hz]
     double SNR [NFREQ];                 // Signal-to-noise ratio [dB]
     int    LLI [NFREQ];                 // Loss of lock indicator
@@ -206,11 +206,21 @@ typedef struct obss {
 // -----------------------------------------------------------------------------
 typedef struct sol {
     double time;                        // Solution time (GPST) (standard time)
+    int    rcv;                         // Receiver index
+
+    double rr[3];                       // Receiver position (ECEF) [m]
+    double zwd;                         // Zenith wet delay [m]
+
+    double rr_fix[3];                   // Receiver position (ECEF) [m] (ambiguity fixed)
+    double zwd_fix;                     // Zenith wet delay [m] (ambiguity fixed)
+
     int    fix;                         // Ambiguity resoluton status
     double Ps;                          // Ambiguity resolution success rate [%]
     double ratio;                       // Ambiguity resolution ratio
+
     int    namb;                        // Number of ambiguities
     int    nfix;                        // Number of fixed ambiguities
+
     int    stat;                        // Solution quality
     int    nsat;                        // Number of satellites
     double dop[5];                      // Dilution of precision (GDOP/PDOP/HDOP/VDOP/TDOP)
@@ -227,53 +237,96 @@ typedef struct sols {
 } sols_t;
 
 // -----------------------------------------------------------------------------
-// Struct of receiver status data
+// Struct of receiver clock status data
 // -----------------------------------------------------------------------------
-typedef struct rcv {
+typedef struct rcvClk {
     double  time;                       // Receiver time (GPST) (standard time)
     int     rcv;                        // Receiver index
-    double  rr[3];                      // Receiver position (ECEF) [m]
-    double  zwd;                        // Zenith wet delay [m]
+
     double  dtr[NSYS];                  // Receiver clock of each system [m]
     double  cbr[NSYS][NFREQ];           // Receiver code bias of each system [m]
     double  pbr[NSYS][NFREQ];           // Receiver phase bias of each system [m]
-    double  rr_fix[3];                  // Receiver position (ECEF) [m] (ambiguity fixed)
-    double  zwd_fix;                    // Zenith wet delay [m] (ambiguity fixed)
+
     double  dtr_fix[NSYS];              // Receiver clock of each system [m] (ambiguity fixed)
     double  cbr_fix[NSYS][NFREQ];       // Receiver code bias of each system [m] (ambiguity fixed)
     double  pbr_fix[NSYS][NFREQ];       // Receiver phase bias of each system [m] (ambiguity fixed)
-} rcv_t;
+} rcvClk_t;
 
 // -----------------------------------------------------------------------------
-// Struct of receiver status data set
+// Struct of receiver clock status data set
 // -----------------------------------------------------------------------------
-typedef struct rcvs {
+typedef struct rcvClks {
     int n, nmax;                        // Number of receivers/allocated memory
-    rcv_t *rcv;                         // Receiver status data
-} rcvs_t;
+    rcvClk_t *rcvClk;                   // Receiver clock status data
+} rcvClks_t;
 
 // -----------------------------------------------------------------------------
-// Struct of satellite status data
+// Struct of satellite clock status data
 // -----------------------------------------------------------------------------
-typedef struct sat {
+typedef struct satClk {
     double  time;                       // Satellite time (GPST) (standard time)
     int     sat;                        // Satellite index
     int     iode;                       // IODE
+
     double  dts;                        // Satellite clock [m]
     double  cbs[NFREQ];                 // Satellite code bias [m]
     double  pbs[NFREQ];                 // Satellite phase bias [m]
+
     double  dts_fix;                    // Satellite clock [m] (ambiguity fixed)
     double  cbs_fix[NFREQ];             // Satellite code bias [m] (ambiguity fixed)
     double  pbs_fix[NFREQ];             // Satellite phase bias [m] (ambiguity fixed)
-} sat_t;
+} satClk_t;
 
 // -----------------------------------------------------------------------------
-// Struct of satellite status data set
+// Struct of satellite clock status data set
 // -----------------------------------------------------------------------------
-typedef struct sats {
+typedef struct satClks {
     int n, nmax;                        // Number of satellites/allocated memory
-    sat_t *sat;                         // Satellite status data
-} sats_t;
+    satClk_t *satClk;                   // Satellite clock status data
+} satClks_t;
+
+// -----------------------------------------------------------------------------
+// Struct of signal status data
+// -----------------------------------------------------------------------------
+typedef struct sig {
+    double  time;                       // Signal sampling time (GPST) [s]
+    int     sat;                        // Satellite index
+    int     rcv;                        // Receiver index
+
+    int     vsig[NFREQ];                // Signal status (0:invalid, 1:valid)
+    int     vfix[NFREQ];                // Phase fix flag (0:float, 1:fixed)
+    int     outl[NFREQ];                // Code outlier flag (0:normal, 1:outlier)
+    int     slip[NFREQ];                // Phase slip flag (0:normal, 1:slip)
+
+    int     outc[NFREQ];                // Signal outage count
+    int     lock[NFREQ];                // Signal lock count
+
+    double  pr[NFREQ];                  // Code measurements [m]
+    double  cp[NFREQ];                  // Phase measurements [cycle]
+    double  freq[NFREQ];                // Phase frequencies [Hz]
+
+    double  resp[NFREQ];                // Code residuals [m]
+    double  resc[NFREQ];                // Phase residuals [m]
+    double  resp_fix[NFREQ];            // Fixed code residuals [m]
+    double  resc_fix[NFREQ];            // Fixed phase residuals [m]
+
+    double  amb[NFREQ];                 // Estimated ambiguities [cycle]
+    double  amb_fix[NFREQ];             // Fixed ambiguity [cycle]
+
+    double  iono[NFREQ];                // Estimated ionosphere delay (L1 slant, biased) [m]
+    double  iono_fix[NFREQ];            // Fixed ionosphere delay (L1 slant, biased) [m]
+
+    double  az;                         // Satellite azimuth angle [rad]
+    double  el;                         // Satellite elevation angle [rad]
+} sig_t;
+
+// -----------------------------------------------------------------------------
+// Struct of signal status data set
+// -----------------------------------------------------------------------------
+typedef struct sigs {
+    int    n, nmax;                     // Number of signals/allocated memory
+    sig_t  *sig;                        // Signal status data
+} sigs_t;
 
 // =============================================================================
 // Common utility types

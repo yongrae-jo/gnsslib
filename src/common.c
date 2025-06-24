@@ -229,11 +229,11 @@ void FreeNav(nav_t *nav)
 // GLONASS frequency channel number operations functions
 // =============================================================================
 
-// Get GLONASS frequency channel number (FCN)
+// Get GLONASS frequency channel number (FCN) (return 0 if invalid)
 int GetFcn(int prn, int *fcn)
 {
     // Check if the PRN is valid
-    if (prn <= 0 || prn > MAX_PRN_GLO) return 0;
+    if (!prn || prn < MIN_PRN_GLO || prn > MAX_PRN_GLO) return 0;
 
     // Calculate the frequency channel number
     *fcn = FCN[prn - MIN_PRN_GLO] - 8;
@@ -248,7 +248,7 @@ int GetFcn(int prn, int *fcn)
 void SetFcn(int prn, int fcn)
 {
     // Check if the PRN is valid
-    if (prn <= 0 || prn > MAX_PRN_GLO) return;
+    if (!prn || prn < MIN_PRN_GLO || prn > MAX_PRN_GLO) return;
 
     // Check if the frequency channel number is valid
     if (fcn < -7 || fcn > 6) return;

@@ -16,14 +16,14 @@ extern "C" {
 // Constants
 // =============================================================================
 
-#define PI              3.1415926535897932      // pi
-#define D2R             (PI/180.0)              // deg to rad
-#define R2D             (180.0/PI)              // rad to deg
-#define SC2RAD          3.1415926535898         // semi-circle to radian (GPS)
-#define C_LIGHT         299792458.0             // speed of light
+#define PI              3.1415926535897932      // Pi
+#define D2R             (PI/180.0)              // Deg to rad
+#define R2D             (180.0/PI)              // Rad to deg
+#define SC2RAD          3.1415926535898         // Semi-circle to radian (GPS)
+#define C_LIGHT         299792458.0             // Speed of light
 
-#define RE_WGS84        6378137.0               // Earth's semimajor axis (WGS84) (m)
-#define RE_GLO          6378136.0               // Earth's semimajor axis (PZ90.02) (m)
+#define RE_WGS84        6378137.0               // Earth's semimajor axis (WGS84) [m]
+#define RE_GLO          6378136.0               // Earth's semimajor axis (PZ90.02) [m]
 
 #define FE_WGS84        (1.0/298.257223563)     // Earth's flattening (WGS84)
 

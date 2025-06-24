@@ -29,6 +29,7 @@ extern "C" {
 #include "rinex.h"
 #include "option.h"
 #include "solution.h"
+#include "sig.h"
 
 // =============================================================================
 // End of header
