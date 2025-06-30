@@ -46,19 +46,26 @@ static inline char Sys2Str(int sys)
 }
 
 // Convert system string to system index
-static inline int Str2Sys(const char str)
+static inline int Str2Sys(char str)
 {
-    int idx = 0;
 
-    if (SYS_GPS && ++idx && str == STR_GPS) return idx;
-    if (SYS_GLO && ++idx && str == STR_GLO) return idx;
-    if (SYS_GAL && ++idx && str == STR_GAL) return idx;
-    if (SYS_BDS && ++idx && str == STR_BDS) return idx;
-    if (SYS_QZS && ++idx && str == STR_QZS) return idx;
-    if (SYS_IRN && ++idx && str == STR_IRN) return idx;
-    if (SYS_SBS && ++idx && str == STR_SBS) return idx;
+    for (int c = 1; c <= NSYS; c++) {
+        if (str && Sys2Str(c) == str) return c;
+    }
 
     return 0;
+
+    // int idx = 0;
+
+    // if (SYS_GPS && ++idx && str == STR_GPS) return idx;
+    // if (SYS_GLO && ++idx && str == STR_GLO) return idx;
+    // if (SYS_GAL && ++idx && str == STR_GAL) return idx;
+    // if (SYS_BDS && ++idx && str == STR_BDS) return idx;
+    // if (SYS_QZS && ++idx && str == STR_QZS) return idx;
+    // if (SYS_IRN && ++idx && str == STR_IRN) return idx;
+    // if (SYS_SBS && ++idx && str == STR_SBS) return idx;
+//
+//     return 0;
 }
 
 // =============================================================================
